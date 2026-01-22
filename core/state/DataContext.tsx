@@ -13,6 +13,7 @@ import {
     getInitialReminders, getInitialAuditLog, getInitialRoles, getInitialInspectionDiagrams
 } from '../data/initialData';
 import { saveImage } from '../../utils/imageStore';
+import { setItem } from '../db';
 
 interface DataContextType {
     jobs: T.Job[]; setJobs: React.Dispatch<React.SetStateAction<T.Job[]>>;
@@ -45,6 +46,7 @@ interface DataContextType {
     taxRates: T.TaxRate[]; setTaxRates: React.Dispatch<React.SetStateAction<T.TaxRate[]>>;
     roles: T.Role[]; setRoles: React.Dispatch<React.SetStateAction<T.Role[]>>;
     inspectionDiagrams: T.InspectionDiagram[]; setInspectionDiagrams: React.Dispatch<React.SetStateAction<T.InspectionDiagram[]>>;
+    forceSave: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -81,6 +83,39 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [taxRates, setTaxRates] = usePersistentState<T.TaxRate[]>('brooks_taxRates', getInitialTaxRates);
     const [roles, setRoles] = usePersistentState<T.Role[]>('brooks_roles', getInitialRoles);
     const [inspectionDiagrams, setInspectionDiagrams] = usePersistentState<T.InspectionDiagram[]>('brooks_inspectionDiagrams', getInitialInspectionDiagrams);
+
+    const forceSave = () => {
+        setItem('brooks_jobs', jobs);
+        setItem('brooks_vehicles', vehicles);
+        setItem('brooks_customers', customers);
+        setItem('brooks_estimates', estimates);
+        setItem('brooks_invoices', invoices);
+        setItem('brooks_purchaseOrders', purchaseOrders);
+        setItem('brooks_purchases', purchases);
+        setItem('brooks_parts', parts);
+        setItem('brooks_servicePackages', servicePackages);
+        setItem('brooks_suppliers', suppliers);
+        setItem('brooks_engineers', engineers);
+        setItem('brooks_lifts', lifts);
+        setItem('brooks_rentalVehicles', rentalVehicles);
+        setItem('brooks_rentalBookings', rentalBookings);
+        setItem('brooks_saleVehicles', saleVehicles);
+        setItem('brooks_saleOverheadPackages', saleOverheadPackages);
+        setItem('brooks_prospects', prospects);
+        setItem('brooks_storageBookings', storageBookings);
+        setItem('brooks_storageLocations', storageLocations);
+        setItem('brooks_batteryChargers', batteryChargers);
+        setItem('brooks_nominalCodes', nominalCodes);
+        setItem('brooks_nominalCodeRules', nominalCodeRules);
+        setItem('brooks_absenceRequests', absenceRequests);
+        setItem('brooks_inquiries', inquiries);
+        setItem('brooks_reminders', reminders);
+        setItem('brooks_auditLog', auditLog);
+        setItem('brooks_businessEntities', businessEntities);
+        setItem('brooks_taxRates', taxRates);
+        setItem('brooks_roles', roles);
+        setItem('brooks_inspectionDiagrams', inspectionDiagrams);
+    };
 
     // Migration Logic for Images (One-time run to move data URLs from JSON to IndexedDB)
     useEffect(() => {
@@ -134,7 +169,8 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         businessEntities, setBusinessEntities,
         taxRates, setTaxRates,
         roles, setRoles,
-        inspectionDiagrams, setInspectionDiagrams
+        inspectionDiagrams, setInspectionDiagrams,
+        forceSave,
     }), [jobs, vehicles, customers, estimates, invoices, purchaseOrders, purchases, parts, servicePackages, suppliers, engineers, lifts, rentalVehicles, rentalBookings, saleVehicles, saleOverheadPackages, prospects, storageBookings, storageLocations, batteryChargers, nominalCodes, nominalCodeRules, absenceRequests, inquiries, reminders, auditLog, businessEntities, taxRates, roles, inspectionDiagrams]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
