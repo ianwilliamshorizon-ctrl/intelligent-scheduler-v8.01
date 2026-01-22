@@ -22,7 +22,7 @@ if (isFirebaseConfigured) {
         if (isDev()) {
              // Emulator settings
              // Note: These ports (8080, 9099) are default for Firebase Emulators
-             connectFirestoreEmulator(db, 'localhost', 8080);
+             connectFirestoreEmulator(db, 'localhost', 8081);
              connectAuthEmulator(auth, 'http://localhost:9099');
              console.log("Connected to Firebase Emulators (Dev Mode)");
         } else {
