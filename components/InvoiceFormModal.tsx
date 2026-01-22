@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Invoice, Customer, Vehicle, BusinessEntity, TaxRate, ServicePackage, Part, EstimateLineItem as InvoiceLineItem } from '../types';
 import { Save, PlusCircle, Gauge, Info, FileText, ChevronUp, ChevronDown, Trash2, X, TrendingUp, Plus } from 'lucide-react';
@@ -51,6 +52,7 @@ interface InvoiceFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (invoice: Invoice) => void;
+    onForceSave: () => void;
     invoice: Partial<Invoice> | null;
     customers: Customer[];
     onSaveCustomer: (customer: Customer) => void;
@@ -63,7 +65,7 @@ interface InvoiceFormModalProps {
     invoices: Invoice[];
 }
 
-const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({ isOpen, onClose, onSave, invoice, customers, onSaveCustomer, vehicles, onSaveVehicle, businessEntities, taxRates, servicePackages, parts, invoices }) => {
+const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({ isOpen, onClose, onSave, onForceSave, invoice, customers, onSaveCustomer, vehicles, onSaveVehicle, businessEntities, taxRates, servicePackages, parts, invoices }) => {
     const [formData, setFormData] = useState<Partial<Invoice>>({ lineItems: [] });
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
     const [isAddingVehicle, setIsAddingVehicle] = useState(false);
@@ -200,7 +202,7 @@ const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({ isOpen, onClose, on
     }, [formData.lineItems, taxRatesMap, standardTaxRateId]);
 
     return (
-        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} title={invoice?.id ? `Edit Invoice #${invoice.id}` : 'Create New Invoice'} maxWidth="max-w-screen-2xl">
+        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} onForceSave={onForceSave} title={invoice?.id ? `Edit Invoice #${invoice.id}` : 'Create New Invoice'} maxWidth="max-w-screen-2xl">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-4">
                      <Section title="Invoice Details" icon={Info}>
@@ -309,6 +311,7 @@ const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({ isOpen, onClose, on
                         setFormData(prev => ({ ...prev, customerId: newCustomer.id, vehicleId: '' }));
                         setIsAddingCustomer(false);
                     }}
+                    onForceSave={() => {}}
                     customer={null}
                     existingCustomers={customers}
                 />
@@ -322,6 +325,7 @@ const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({ isOpen, onClose, on
                         setFormData(prev => ({ ...prev, vehicleId: newVehicle.id }));
                         setIsAddingVehicle(false);
                     }}
+                    onForceSave={() => {}}
                     vehicle={{ customerId: formData.customerId }}
                     customers={customers}
                 />

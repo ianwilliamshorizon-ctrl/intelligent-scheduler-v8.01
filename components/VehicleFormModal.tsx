@@ -28,6 +28,7 @@ interface VehicleFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (vehicle: Vehicle) => void;
+    onForceSave: () => void;
     vehicle: Partial<Vehicle> | null;
     customers: Customer[];
     jobs?: Job[];
@@ -38,7 +39,7 @@ interface VehicleFormModalProps {
     onViewInvoice?: (invoice: Invoice) => void;
 }
 
-const VehicleFormModal: React.FC<VehicleFormModalProps> = ({ isOpen, onClose, onSave, vehicle, customers, jobs, estimates, invoices, onViewJob, onViewEstimate, onViewInvoice }) => {
+const VehicleFormModal: React.FC<VehicleFormModalProps> = ({ isOpen, onClose, onSave, onForceSave, vehicle, customers, jobs, estimates, invoices, onViewJob, onViewEstimate, onViewInvoice }) => {
     const [formData, setFormData] = useState<Partial<Vehicle>>({});
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [lookupError, setLookupError] = useState('');
@@ -156,7 +157,7 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({ isOpen, onClose, on
     };
 
     return (
-        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} title={vehicle?.id ? 'Edit Vehicle' : 'Add Vehicle'} maxWidth="max-w-6xl">
+        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} onForceSave={handleSave} title={vehicle?.id ? 'Edit Vehicle' : 'Add Vehicle'} maxWidth="max-w-6xl">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <div className="md:col-span-3 space-y-4">
                     {/* Added items-start to align top when one column is taller */}

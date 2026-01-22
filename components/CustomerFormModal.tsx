@@ -26,6 +26,7 @@ interface CustomerFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (customer: Customer) => void;
+    onForceSave: () => void;
     customer: Partial<Customer> | null;
     existingCustomers: Customer[];
     jobs?: Job[];
@@ -142,7 +143,7 @@ const VehicleHistoryItem: React.FC<{ vehicle: Vehicle, jobs: Job[], estimates: E
     );
 };
 
-const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, onSave, customer, existingCustomers, jobs, vehicles, estimates, invoices, onViewVehicle }) => {
+const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, onSave, onForceSave, customer, existingCustomers, jobs, vehicles, estimates, invoices, onViewVehicle }) => {
     const [formData, setFormData] = useState<Partial<Customer>>({});
     const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
     const [addressLookupError, setAddressLookupError] = useState('');
@@ -243,7 +244,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
     }, [customer, customerVehicles, jobs, estimates, invoices]);
 
     return (
-        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} title={customer?.id ? 'Edit Customer' : 'Add Customer'} maxWidth="max-w-4xl">
+        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} onForceSave={handleSave} title={customer?.id ? 'Edit Customer' : 'Add Customer'} maxWidth="max-w-4xl">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <div className="md:col-span-3 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

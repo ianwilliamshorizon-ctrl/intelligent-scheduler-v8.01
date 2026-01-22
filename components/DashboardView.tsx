@@ -8,7 +8,7 @@ import { Job, Inquiry } from '../types';
 import {
     LayoutGrid, BarChart, Users, FileText, Briefcase, Car, CalendarCheck, CheckCircle, Clock,
     LogIn, PlayCircle, PauseCircle, Tag, MessageSquare, Wrench, UserCheck, AlertCircle, Play,
-    ClipboardCheck, Wand2, Save
+    ClipboardCheck, Wand2
 } from 'lucide-react';
 
 // --- Reusable Components ---
@@ -53,7 +53,7 @@ const AdminDispatcherDashboard: React.FC<{
     onOpenInquiry: (inquiry: Inquiry) => void;
     onOpenAssistant: (jobId: string) => void;
 }> = ({ onEditJob, onOpenInquiry, onOpenAssistant }) => {
-    const { jobs, inquiries, vehicles, customers, roles, forceSave } = useData();
+    const { jobs, inquiries, vehicles, customers, roles } = useData();
     const { selectedEntityId, setCurrentView, currentUser } = useApp();
     const today = getRelativeDate(0);
 
@@ -79,25 +79,15 @@ const AdminDispatcherDashboard: React.FC<{
     const userRoleDef = roles.find(r => r.name === currentUser.role);
     const effectiveAllowedViews = currentUser.allowedViews || userRoleDef?.defaultAllowedViews || [];
 
-    const quickActions: { id: T.ViewType | 'force_save', label: string, icon: React.ElementType }[] = [
+    const quickActions: { id: T.ViewType, label: string, icon: React.ElementType }[] = [
         { id: 'dispatch', label: 'Dispatch', icon: CalendarCheck },
         { id: 'concierge', label: 'Service Stream', icon: Wrench },
         { id: 'inquiries', label: 'Inquiries', icon: MessageSquare },
-        { id: 'force_save', label: 'Force Save', icon: Save },
     ];
 
     const allowedActions = quickActions.filter(action => 
-        currentUser.role === 'Admin' || effectiveAllowedViews.includes(action.id as T.ViewType)
+        currentUser.role === 'Admin' || effectiveAllowedViews.includes(action.id)
     );
-
-    const handleActionClick = (id: T.ViewType | 'force_save') => {
-        if (id === 'force_save') {
-            forceSave();
-            alert('Data saved!');
-        } else {
-            setCurrentView(id as T.ViewType);
-        }
-    };
 
     return (
         <div className="space-y-6">
@@ -112,7 +102,7 @@ const AdminDispatcherDashboard: React.FC<{
                 <h3 className="text-lg font-bold text-gray-800 mb-3">Quick Actions</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     {allowedActions.map(action => (
-                        <ActionButton key={action.id} title={action.label} icon={action.icon} onClick={() => handleActionClick(action.id)} />
+                        <ActionButton key={action.id} title={action.label} icon={action.icon} onClick={() => setCurrentView(action.id)} />
                     ))}
                 </div>
             </div>
