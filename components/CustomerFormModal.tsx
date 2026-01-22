@@ -26,7 +26,7 @@ interface CustomerFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (customer: Customer) => void;
-    onForceSave: () => void;
+    onForceSave?: (customer: Customer) => void;
     customer: Partial<Customer> | null;
     existingCustomers: Customer[];
     jobs?: Job[];
@@ -223,6 +223,23 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
         onSave(newCustomer);
         logEvent(isNew ? 'CREATE' : 'UPDATE', 'Customer', newCustomer.id, `${isNew ? 'Created' : 'Updated'} customer: ${getCustomerDisplayName(newCustomer)}.`);
     };
+
+    const handleForceSave = () => {
+        const isNew = !formData.id;
+        const newCustomer: Customer = {
+            id: formData.id || generateCustomerId(formData.surname || 'Unknown', existingCustomers),
+            createdDate: formData.createdDate || formatDate(new Date()),
+            ...formData,
+        } as Customer;
+
+        if (onForceSave) {
+            onForceSave(newCustomer);
+        } else {
+            // Fallback to regular save if onForceSave is not provided
+            onSave(newCustomer);
+        }
+        logEvent(isNew ? 'CREATE' : 'UPDATE', 'Customer', newCustomer.id, `(FORCED) ${isNew ? 'Created' : 'Updated'} customer: ${getCustomerDisplayName(newCustomer)}.`);
+    };
     
     const customerVehicles = useMemo(() => {
         if (!customer || !customer.id || !vehicles) return [];
@@ -244,7 +261,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
     }, [customer, customerVehicles, jobs, estimates, invoices]);
 
     return (
-        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} onForceSave={handleSave} title={customer?.id ? 'Edit Customer' : 'Add Customer'} maxWidth="max-w-4xl">
+        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} onForceSave={handleForceSave} title={customer?.id ? 'Edit Customer' : 'Add Customer'} maxWidth="max-w-4xl">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <div className="md:col-span-3 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

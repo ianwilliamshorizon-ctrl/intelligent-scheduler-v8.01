@@ -45,9 +45,10 @@ interface EntityFormModalProps {
     onSave: (entity: BusinessEntity) => void;
     entity: BusinessEntity | null;
     isDebugMode: boolean;
+    onForceSave?: (entity: BusinessEntity) => void;
 }
 
-const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClose, onSave, entity, isDebugMode }) => {
+const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClose, onSave, entity, isDebugMode, onForceSave }) => {
     const [formData, setFormData] = useState<Partial<BusinessEntity> & { tempLogoUrl?: string }>({});
 
     useEffect(() => {
@@ -95,8 +96,23 @@ const EntityFormModal: React.FC<EntityFormModalProps> = ({ isOpen, onClose, onSa
         onClose();
     };
 
+    const handleForceSave = () => {
+        if (onForceSave) {
+            const { tempLogoUrl, ...dataToSave } = formData;
+            onForceSave(dataToSave as BusinessEntity);
+            onClose();
+        }
+    };
+
     return (
-        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} title="Edit Business Entity" maxWidth="max-w-4xl">
+        <FormModal 
+            isOpen={isOpen} 
+            onClose={onClose} 
+            onSave={handleSave} 
+            title="Edit Business Entity" 
+            maxWidth="max-w-4xl"
+            onForceSave={onForceSave ? handleForceSave : undefined}
+        >
             <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Core Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

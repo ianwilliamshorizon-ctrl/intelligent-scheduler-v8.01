@@ -28,7 +28,7 @@ interface VehicleFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (vehicle: Vehicle) => void;
-    onForceSave: () => void;
+    onForceSave?: (vehicle: Vehicle) => void;
     vehicle: Partial<Vehicle> | null;
     customers: Customer[];
     jobs?: Job[];
@@ -144,6 +144,36 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({ isOpen, onClose, on
         logEvent(isNew ? 'CREATE' : 'UPDATE', 'Vehicle', finalVehicle.id, `${isNew ? 'Created' : 'Updated'} vehicle: ${finalVehicle.registration}.`);
     };
 
+    const handleForceSave = () => {
+        const isNew = !formData.id;
+        let vehicleToSave = { ...formData };
+
+        if (!isNew && vehicle?.registration && vehicle.registration !== vehicleToSave.registration) {
+            const historyEntry: T.PreviousRegistration = {
+                registration: vehicle.registration,
+                changedAt: new Date().toISOString(),
+                changedByUserId: currentUser.id,
+            };
+
+            vehicleToSave = {
+                ...vehicleToSave,
+                previousRegistrations: [...(vehicleToSave.previousRegistrations || []), historyEntry],
+            };
+        }
+
+        const finalVehicle: Vehicle = {
+            id: vehicleToSave.id || crypto.randomUUID(),
+            ...vehicleToSave,
+        } as Vehicle;
+
+        if (onForceSave) {
+            onForceSave(finalVehicle);
+        } else {
+            onSave(finalVehicle);
+        }
+        logEvent(isNew ? 'CREATE' : 'UPDATE', 'Vehicle', finalVehicle.id, `(FORCED) ${isNew ? 'Created' : 'Updated'} vehicle: ${finalVehicle.registration}.`);
+    };
+
     const handleImageUpdate = (updatedVehicle: Vehicle) => {
         setFormData(updatedVehicle);
     };
@@ -157,7 +187,7 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({ isOpen, onClose, on
     };
 
     return (
-        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} onForceSave={handleSave} title={vehicle?.id ? 'Edit Vehicle' : 'Add Vehicle'} maxWidth="max-w-6xl">
+        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} onForceSave={handleForceSave} title={vehicle?.id ? 'Edit Vehicle' : 'Add Vehicle'} maxWidth="max-w-6xl">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <div className="md:col-span-3 space-y-4">
                     {/* Added items-start to align top when one column is taller */}
