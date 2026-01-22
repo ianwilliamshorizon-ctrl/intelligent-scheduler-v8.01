@@ -58,12 +58,13 @@ const getEnvKey = (baseKey: string) => {
 };
 
 export const firebaseConfig = {
-  apiKey: getEnvKey('VITE_FIREBASE_API_KEY'),
-  authDomain: getEnvKey('VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: getEnvKey('VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: getEnvKey('VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnvKey('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnvKey('VITE_FIREBASE_APP_ID')
+  apiKey: "AIzaSyAcrfO2yAMd7fxZlWs024PIvPXgUUF5u2E",
+  authDomain: "intelligent-scheduling-v801.firebaseapp.com",
+  projectId: "intelligent-scheduling-v801",
+  storageBucket: "intelligent-scheduling-v801.firebasestorage.app",
+  messagingSenderId: "194785321173",
+  appId: "1:194785321173:web:22c5910cc74b6cad91c25c",
+  measurementId: "G-3EWDFXB3M7"
 };
 
 // Collection name in Firestore to store the application data
