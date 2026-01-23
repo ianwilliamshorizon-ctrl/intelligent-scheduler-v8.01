@@ -1,6 +1,4 @@
 
-// Using Vite's boolean flags is safer.
-// See: https://vitejs.dev/guide/env-and-mode.html#env-variables
 const isProduction = import.meta.env.PROD;
 const isUAT = import.meta.env.MODE === 'uat';
 
@@ -15,15 +13,17 @@ export const currentEnvironment = getActiveEnvironment();
 
 export const isDev = (): boolean => !isProduction;
 
+// Use environment variables for Firebase config
 export const firebaseConfig = {
-  apiKey: "AIzaSyAcrfO2yAMd7fxZlWs024PIvPXgUUF5u2E",
-  authDomain: "intelligent-scheduling-v801.firebaseapp.com",
-  projectId: "intelligent-scheduling-v801",
-  storageBucket: "intelligent-scheduling-v801.firebasestorage.app",
-  messagingSenderId: "194785321173",
-  appId: "1:194785321173:web:22c5910cc74b6cad91c25c",
-  measurementId: "G-3EWDFXB3M7"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
+
 
 // Collection name in Firestore to store the application data
 export const COLLECTION_NAME = isProduction && !isUAT ? 'brookspeed_data' : `brookspeed_data_${currentEnvironment.toLowerCase()}`;
