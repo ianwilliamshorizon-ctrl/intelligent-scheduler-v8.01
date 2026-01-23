@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import * as T from '../../types';
 import { usePersistentState } from './usePersistentState';
 import {
@@ -13,7 +13,7 @@ import {
     getInitialReminders, getInitialAuditLog, getInitialRoles, getInitialInspectionDiagrams
 } from '../data/initialData';
 import { saveImage } from '../../utils/imageStore';
-import { setItem } from '../db';
+import { setItem, subscribeToCollection } from '../db';
 
 interface DataContextType {
     jobs: T.Job[]; setJobs: React.Dispatch<React.SetStateAction<T.Job[]>>;
@@ -55,7 +55,7 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // --- Initialize Persistent State ---
     const [jobs, setJobs] = usePersistentState<T.Job[]>('brooks_jobs', getInitialJobs);
     const [vehicles, setVehicles] = usePersistentState<T.Vehicle[]>('brooks_vehicles', getInitialVehicles);
-    const [customers, setCustomers] = usePersistentState<T.Customer[]>('brooks_customers', getInitialCustomers);
+    const [customers, setCustomers] = useState<T.Customer[]>(getInitialCustomers);
     const [estimates, setEstimates] = usePersistentState<T.Estimate[]>('brooks_estimates', getInitialEstimates);
     const [invoices, setInvoices] = usePersistentState<T.Invoice[]>('brooks_invoices', getInitialInvoices);
     const [purchaseOrders, setPurchaseOrders] = usePersistentState<T.PurchaseOrder[]>('brooks_purchaseOrders', getInitialPurchaseOrders);
@@ -84,10 +84,19 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [roles, setRoles] = usePersistentState<T.Role[]>('brooks_roles', getInitialRoles);
     const [inspectionDiagrams, setInspectionDiagrams] = usePersistentState<T.InspectionDiagram[]>('brooks_inspectionDiagrams', getInitialInspectionDiagrams);
 
+    useEffect(() => {
+        const unsubscribe = subscribeToCollection<T.Customer>('brooks_customers', (updatedCustomers) => {
+            if (updatedCustomers) {
+                setCustomers(updatedCustomers);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
     const forceSave = () => {
         setItem('brooks_jobs', jobs);
         setItem('brooks_vehicles', vehicles);
-        setItem('brooks_customers', customers);
         setItem('brooks_estimates', estimates);
         setItem('brooks_invoices', invoices);
         setItem('brooks_purchaseOrders', purchaseOrders);

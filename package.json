@@ -5,17 +5,25 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode production",
+    "build:uat": "vite build --mode uat",
+    "build:debug": "vite build --debug",
     "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.22.0",
-    "firebase": "^12.7.0",
+    "@ts-stack/markdown": "^1.5.0",
+    "@types/dompurify": "^3.0.5",
+    "dompurify": "^3.3.1",
+    "firebase": "^12.8.0",
+    "framer-motion": "^12.29.0",
     "html2canvas": "^1.4.1",
+    "jotai": "^2.16.2",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.544.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -1,17 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ServicePackage, EstimateLineItem, Part } from '../../types';
 
-// Helper to safely access environment variables without crashing if 'process' is undefined
-const getEnvVar = (key: string): string | undefined => {
-    try {
-        // @ts-ignore
-        return (typeof process !== 'undefined' && process.env) ? process.env[key] : undefined;
-    } catch (e) {
-        return undefined;
-    }
-};
-
-const apiKey = getEnvVar('API_KEY');
+const apiKey = import.meta.env.VITE_API_KEY;
 
 if (!apiKey) {
     console.warn("API_KEY environment variable not set. Gemini features will not work.");
@@ -25,8 +15,7 @@ export const createAssistantChat = () => {
     }
 
     return ai.chats.create({
-        // FIX: Updated model name to 'gemini-3-flash-preview' as per guidelines.
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash',
         config: {
             systemInstruction: `You are an expert automotive technician assistant at Brookspeed, a high-performance garage specializing in Porsche, Audi, and other performance vehicles.
             
@@ -75,14 +64,14 @@ export const parseJobRequest = async (prompt: string, servicePackages: ServicePa
           description: 'A list of service package names if any are mentioned. Must be an exact match from the provided list.',
           items: {
             type: Type.STRING,
-            enum: servicePackages.map(p => p.name),
+            enum: (servicePackages || []).map(p => p.name),
           }
         }
       },
       required: ['vehicleRegistration', 'description', 'scheduledDate'],
     };
     
-    const knownPackages = servicePackages.map(p => `- ${p.name}: ${p.description || p.name}`).join('\n');
+    const knownPackages = (servicePackages || []).map(p => `- ${p.name}: ${p.description || p.name}`).join('\n');
 
     let vehicleContextPrompt = '';
     if (vehicleInfo) {
@@ -118,9 +107,8 @@ export const parseJobRequest = async (prompt: string, servicePackages: ServicePa
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            // FIX: Updated model name as per guidelines.
-            model: 'gemini-3-pro-preview',
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
             contents: fullPrompt,
             config: {
                 responseMimeType: 'application/json',
@@ -128,8 +116,7 @@ export const parseJobRequest = async (prompt: string, servicePackages: ServicePa
             },
         });
         
-        // FIX: Use .text property instead of .text() method
-        const jsonText = response.text.trim();
+        const jsonText = result.text;
         const parsedData = JSON.parse(jsonText);
         if (!parsedData.servicePackageNames) {
           parsedData.servicePackageNames = [];
@@ -183,9 +170,8 @@ export const parseSearchQuery = async (query: string): Promise<{ searchTerm: str
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            // FIX: Updated model name as per guidelines.
-            model: 'gemini-3-flash-preview',
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
             contents: fullPrompt,
             config: {
                 responseMimeType: 'application/json',
@@ -193,8 +179,7 @@ export const parseSearchQuery = async (query: string): Promise<{ searchTerm: str
             },
         });
         
-        // FIX: Use .text property instead of .text() method
-        const jsonText = response.text.trim();
+        const jsonText = result.text;
         const parsedData = JSON.parse(jsonText);
         return parsedData;
 
@@ -253,9 +238,8 @@ export const generateServicePackageName = async (
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            // FIX: Updated model name as per guidelines.
-            model: 'gemini-3-flash-preview',
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
             contents: fullPrompt,
             config: {
                 responseMimeType: 'application/json',
@@ -263,8 +247,7 @@ export const generateServicePackageName = async (
             },
         });
         
-        // FIX: Use .text property instead of .text() method
-        const jsonText = response.text.trim();
+        const jsonText = result.text;
         return JSON.parse(jsonText);
 
     } catch (error) {
@@ -322,8 +305,8 @@ export const generateEstimateFromDescription = async (
         required: ['mainItems']
     };
 
-    const partsList = availableParts.map(p => `- ${p.partNumber}: ${p.description}`).join('\n');
-    const packagesList = availablePackages.map(p => `- ${p.name}: ${p.description || p.name}`).join('\n');
+    const partsList = (availableParts || []).map(p => `- ${p.partNumber}: ${p.description}`).join('\n');
+    const packagesList = (availablePackages || []).map(p => `- ${p.name}: ${p.description || p.name}`).join('\n');
 
     const fullPrompt = `
       You are an expert garage service advisor. Your task is to analyze a customer's request and break it down into an estimate with three parts: 1. Essential line items, 2. Suggested optional extras, and 3. Important notes.
@@ -355,9 +338,8 @@ export const generateEstimateFromDescription = async (
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            // FIX: Updated model name as per guidelines.
-            model: 'gemini-3-pro-preview',
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
             contents: fullPrompt,
             config: {
                 responseMimeType: 'application/json',
@@ -365,8 +347,7 @@ export const generateEstimateFromDescription = async (
             },
         });
         
-        // FIX: Use .text property instead of .text() method
-        const jsonText = response.text.trim();
+        const jsonText = result.text;
         const parsedData = JSON.parse(jsonText);
         
         return {
@@ -424,9 +405,8 @@ export const parseInquiryMessage = async (message: string): Promise<{ fromName: 
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            // FIX: Updated model name as per guidelines.
-            model: 'gemini-3-flash-preview',
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
             contents: fullPrompt,
             config: {
                 responseMimeType: 'application/json',
@@ -434,8 +414,7 @@ export const parseInquiryMessage = async (message: string): Promise<{ fromName: 
             },
         });
         
-        // FIX: Use .text property instead of .text() method
-        const jsonText = response.text.trim();
+        const jsonText = result.text;
         const parsedData = JSON.parse(jsonText);
         return parsedData;
 
@@ -486,7 +465,7 @@ export const parseServicePackageFromContent = async (content: string): Promise<P
       Content: "${content}"
 
       Instructions:
-      1. Create a 'name' that summarizes the content (e.g., "Wheel Torque Spec" or "911 Major Service").
+      1. Create a 'name' that summarizes the. content (e.g., "Wheel Torque Spec" or "911 Major Service").
       2. Create a 'description' that includes key details like torque settings or specific instructions found in the text.
       3. Extract a list of 'costItems'.
          - If the text lists parts, create items with isLabor: false.
@@ -498,9 +477,8 @@ export const parseServicePackageFromContent = async (content: string): Promise<P
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            // FIX: Updated model name as per guidelines.
-            model: 'gemini-3-pro-preview',
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
             contents: fullPrompt,
             config: {
                 responseMimeType: 'application/json',
@@ -508,8 +486,7 @@ export const parseServicePackageFromContent = async (content: string): Promise<P
             },
         });
         
-        // FIX: Use .text property instead of .text() method
-        const jsonText = response.text.trim();
+        const jsonText = result.text;
         return JSON.parse(jsonText);
 
     } catch (error) {

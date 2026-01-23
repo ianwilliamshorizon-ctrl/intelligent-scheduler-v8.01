@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useData } from '../core/state/DataContext';
 import { useApp } from '../core/state/AppContext';
 import { Vehicle, Customer, User, Part, ServicePackage, Supplier, BusinessEntity, BackupSchedule, Estimate, Role, InspectionDiagram, NominalCode, NominalCodeRule, Job, Invoice } from '../types';
-import { X, Settings, Database, User as UserIcon, Car, Wrench, Package, Briefcase, Download, Upload, ShieldCheck, Users, Truck, Percent, Trash2, AlertTriangle, RefreshCw, Search, PlusCircle, Edit, CarFront, List, Zap, FolderInput, CheckCircle, Info, Clock, Cloud, HardDrive, Server } from 'lucide-react';
+import { X, Settings, Database, User as UserIcon, Car, Wrench, Package, Briefcase, Download, Upload, ShieldCheck, Users, Truck, Percent, Trash2, AlertTriangle, RefreshCw, Search, PlusCircle, Edit, CarFront, List, Zap, FolderInput, CheckCircle, Info, Clock, Cloud, HardDrive, Server, Save } from 'lucide-react';
 import CustomerFormModal from './CustomerFormModal';
 import VehicleFormModal from './VehicleFormModal';
 import EntityFormModal from './EntityFormModal';
@@ -39,6 +39,7 @@ interface ManagementModalProps {
 }
 
 const ManagementModal: React.FC<ManagementModalProps> = ({ isOpen, onClose, initialView, selectedEntityId, onViewJob, onViewEstimate, backupSchedule, setBackupSchedule, onManualBackup }) => {
+    const dataContext = useData();
     const { 
         customers, setCustomers, vehicles, setVehicles, parts, setParts, 
         servicePackages, setServicePackages, suppliers, setSuppliers, 
@@ -46,7 +47,8 @@ const ManagementModal: React.FC<ManagementModalProps> = ({ isOpen, onClose, init
         inspectionDiagrams, setInspectionDiagrams, taxRates, roles, setRoles,
         rentalVehicles, nominalCodes, setNominalCodes, nominalCodeRules, setNominalCodeRules,
         jobs, setJobs, invoices, setInvoices
-    } = useData();
+    } = dataContext;
+    
     const { users, setUsers, appEnvironment, setAppEnvironment } = useApp();
 
     const [activeTab, setActiveTab] = useState(initialView?.tab || 'customers');
@@ -152,6 +154,53 @@ const ManagementModal: React.FC<ManagementModalProps> = ({ isOpen, onClose, init
             setItems(prev => prev.filter(i => !selectedIds.has(i.id)));
             setSelectedIds(new Set());
             showStatus('Items deleted successfully.', 'success');
+        }
+    };
+
+    const handleForceSave = async () => {
+        setIsUpdating(true);
+        showStatus('Forcing save of all data to storage...', 'info');
+        
+        try {
+            await Promise.all([
+                setItem('brooks_jobs', dataContext.jobs),
+                setItem('brooks_vehicles', dataContext.vehicles),
+                setItem('brooks_customers', dataContext.customers),
+                setItem('brooks_estimates', dataContext.estimates),
+                setItem('brooks_invoices', dataContext.invoices),
+                setItem('brooks_purchaseOrders', dataContext.purchaseOrders),
+                setItem('brooks_purchases', dataContext.purchases),
+                setItem('brooks_parts', dataContext.parts),
+                setItem('brooks_servicePackages', dataContext.servicePackages),
+                setItem('brooks_suppliers', dataContext.suppliers),
+                setItem('brooks_engineers', dataContext.engineers),
+                setItem('brooks_lifts', dataContext.lifts),
+                setItem('brooks_rentalVehicles', dataContext.rentalVehicles),
+                setItem('brooks_rentalBookings', dataContext.rentalBookings),
+                setItem('brooks_saleVehicles', dataContext.saleVehicles),
+                setItem('brooks_saleOverheadPackages', dataContext.saleOverheadPackages),
+                setItem('brooks_prospects', dataContext.prospects),
+                setItem('brooks_storageBookings', dataContext.storageBookings),
+                setItem('brooks_storageLocations', dataContext.storageLocations),
+                setItem('brooks_batteryChargers', dataContext.batteryChargers),
+                setItem('brooks_nominalCodes', dataContext.nominalCodes),
+                setItem('brooks_nominalCodeRules', dataContext.nominalCodeRules),
+                setItem('brooks_absenceRequests', dataContext.absenceRequests),
+                setItem('brooks_inquiries', dataContext.inquiries),
+                setItem('brooks_reminders', dataContext.reminders),
+                setItem('brooks_auditLog', dataContext.auditLog),
+                setItem('brooks_businessEntities', dataContext.businessEntities),
+                setItem('brooks_taxRates', dataContext.taxRates),
+                setItem('brooks_roles', dataContext.roles),
+                setItem('brooks_inspectionDiagrams', dataContext.inspectionDiagrams),
+                setItem('brooks_users', users),
+            ]);
+            showStatus('All data successfully forced to storage.', 'success');
+        } catch (e) {
+            console.error(e);
+            showStatus('Failed to save some data. Check console for details.', 'error');
+        } finally {
+            setIsUpdating(false);
         }
     };
 
@@ -1234,7 +1283,17 @@ const ManagementModal: React.FC<ManagementModalProps> = ({ isOpen, onClose, init
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col">
                     <header className="flex-shrink-0 flex justify-between items-center p-4 border-b bg-gray-50 rounded-t-xl">
                         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Settings className="text-gray-600"/> Data Management</h2>
-                        <button onClick={onClose}><X size={24} className="text-gray-500 hover:text-gray-800" /></button>
+                        <div className="flex items-center gap-2">
+                             <button 
+                                onClick={handleForceSave} 
+                                disabled={isUpdating}
+                                className="mr-2 flex items-center gap-2 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm font-semibold disabled:opacity-50"
+                            >
+                                <Save size={16} className={isUpdating ? "animate-spin" : ""} />
+                                {isUpdating ? 'Saving...' : 'Force Save'}
+                            </button>
+                            <button onClick={onClose}><X size={24} className="text-gray-500 hover:text-gray-800" /></button>
+                        </div>
                     </header>
                     
                     {statusMessage && renderStatusBanner()}

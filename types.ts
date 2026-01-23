@@ -5,6 +5,39 @@ export type UserRole = 'Admin' | 'Dispatcher' | 'Engineer' | 'Sales' | 'Garage C
 
 export type AppEnvironment = 'Production' | 'UAT' | 'Development';
 
+export type CollectionName = 
+    | 'brooks_jobs'
+    | 'brooks_vehicles'
+    | 'brooks_customers'
+    | 'brooks_estimates'
+    | 'brooks_invoices'
+    | 'brooks_purchaseOrders'
+    | 'brooks_purchases'
+    | 'brooks_parts'
+    | 'brooks_servicePackages'
+    | 'brooks_suppliers'
+    | 'brooks_engineers'
+    | 'brooks_lifts'
+    | 'brooks_rentalVehicles'
+    | 'brooks_rentalBookings'
+    | 'brooks_saleVehicles'
+    | 'brooks_saleOverheadPackages'
+    | 'brooks_prospects'
+    | 'brooks_storageBookings'
+    | 'brooks_storageLocations'
+    | 'brooks_batteryChargers'
+    | 'brooks_nominalCodes'
+    | 'brooks_nominalCodeRules'
+    | 'brooks_absenceRequests'
+    | 'brooks_inquiries'
+    | 'brooks_reminders'
+    | 'brooks_auditLog'
+    | 'brooks_businessEntities'
+    | 'brooks_taxRates'
+    | 'brooks_roles'
+    | 'brooks_inspectionDiagrams'
+    | 'brooks_users';
+
 export interface User {
     id: string;
     name: string;
