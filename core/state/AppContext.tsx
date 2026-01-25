@@ -3,7 +3,7 @@ import * as T from '../../types';
 import { usePersistentState } from './usePersistentState';
 import { getInitialUsers } from '../data/initialData';
 import { useData } from './DataContext';
-import { getAppEnvironment } from '../config/firebaseConfig';
+import { getAppEnvironment } from '../db';
 
 export interface ConfirmationState {
     isOpen: boolean;

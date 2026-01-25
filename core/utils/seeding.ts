@@ -1,6 +1,7 @@
 
-import { db } from '../db';
-import { isDev } from '../config/firebaseConfig';
+import '../env'; // Load environment variables FIRST
+
+import { getDb, isDev } from '../db';
 import {
     // Foundational Data
     getInitialUsers, getInitialRoles, getInitialBusinessEntities, getInitialTaxRates,
@@ -20,6 +21,7 @@ import { setDoc, doc, getDoc } from 'firebase/firestore';
 
 // This function safely seeds a collection in production, only adding new documents.
 const safeSeedCollection = async (collectionName: string, data: any[]) => {
+    const db = getDb();
     console.log(`Safely seeding ${collectionName}...`);
     let newItemsCount = 0;
     for (const item of data) {
@@ -39,6 +41,7 @@ const safeSeedCollection = async (collectionName: string, data: any[]) => {
 
 // This function overwrites a collection, intended for development/emulator use only.
 const destructiveSeedCollection = async (collectionName: string, data: any[]) => {
+    const db = getDb();
     console.log(`DESTUCTIVELY seeding ${collectionName}...`);
     for (const item of data) {
         if (item.id) {
@@ -51,10 +54,7 @@ const destructiveSeedCollection = async (collectionName: string, data: any[]) =>
 };
 
 const seedDatabase = async () => {
-    // The 'isDev()' check points to our Vite environment variable.
-    // When running this script via tsx, `import.meta.env.DEV` will be undefined.
-    // We will use a command-line argument to signal a dev seed.
-    const isDevelopment = process.argv.includes('--dev');
+    const isDevelopment = isDev();
 
     if (isDevelopment) {
         console.log('--- Running in DEV mode. Seeding with full sample data. THIS IS DESTRUCTIVE. ---');
@@ -106,6 +106,10 @@ const seedDatabase = async () => {
         await safeSeedCollection('brooks_storageLocations', getInitialStorageLocations());
         await safeSeedCollection('brooks_batteryChargers', getInitialBatteryChargers());
         await safeSeedCollection('brooks_inspectionDiagrams', getInitialInspectionDiagrams());
+
+        // SEED THE VEHICLES (This was missing for PROD)
+        await safeSeedCollection('brooks_vehicles', getInitialVehicles());
+        
         console.log('--- PROD SEEDING COMPLETE ---');
     }
 };

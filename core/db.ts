@@ -1,24 +1,72 @@
 
+import './env'; 
 import { initializeApp } from 'firebase/app';
 import { 
-    getFirestore, doc, getDoc, setDoc, deleteDoc, collection, 
+    getFirestore, doc, getDoc, setDoc, collection, 
     onSnapshot, Firestore, connectFirestoreEmulator, runTransaction,
-    query, orderBy, DocumentData, WithFieldValue
+    query, deleteDoc as firestoreDeleteDoc
 } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { firebaseConfig, isDev } from './config/firebaseConfig';
 
-// --- Configuration ---
-const isFirebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+// --- 1. Environment & Config ---
+const getEnv = () => (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : process.env;
 
+export const isDev = () => {
+    if (typeof process !== 'undefined' && process.argv) {
+        return process.argv.includes('--dev');
+    }
+    const env = getEnv();
+    return env.DEV === true || env.VITE_USER_NODE_ENV === 'development';
+};
+
+/**
+ * Returns whether the app is running in Production or Development mode.
+ * Required by AppContext.tsx
+ */
+export const getAppEnvironment = (): 'Production' | 'Development' => {
+    return isDev() ? 'Development' : 'Production';
+};
+
+// --- 2. Data Sanitization (Prevents Firebase "undefined" errors) ---
+const sanitizeData = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(v => sanitizeData(v));
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined) 
+        .map(([k, v]) => [k, sanitizeData(v)])
+    );
+  }
+  return obj;
+};
+
+// --- 3. Lazy Initialization ---
 let db: Firestore;
 let auth: any;
+let isInitialized = false;
 
-if (isFirebaseConfigured) {
+const initialize = () => {
+    if (isInitialized) return;
+
+    const firebaseConfig = {
+        apiKey: getEnv().VITE_FIREBASE_API_KEY,
+        authDomain: getEnv().VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: getEnv().VITE_FIREBASE_PROJECT_ID,
+        storageBucket: getEnv().VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: getEnv().VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: getEnv().VITE_FIREBASE_APP_ID,
+    };
+
+    if (!firebaseConfig.projectId) {
+        throw new Error("Firebase Project ID is missing. Check your .env file.");
+    }
+
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
-    
+    isInitialized = true;
+
     if (isDev()) {
         connectFirestoreEmulator(db, 'localhost', 8080);
         connectAuthEmulator(auth, 'http://localhost:9099');
@@ -26,96 +74,82 @@ if (isFirebaseConfigured) {
     } else {
         console.log("☁️ Connected to Cloud Firestore");
     }
-}
+};
 
-export { db };
+/**
+ * Returns the Firestore instance.
+ * Required by seeding.ts
+ */
+export const getDb = (): Firestore => {
+    if (!isInitialized) initialize();
+    return db;
+};
 
+/**
+ * Returns whether the app is using the local emulator or live firestore.
+ * Required by AppContext.tsx
+ */
 export const getStorageType = () => {
-    if (!isFirebaseConfigured) return 'memory';
+    if (!isInitialized) initialize();
     return isDev() ? 'emulator' : 'firestore';
 };
 
-// --- Collections ---
-// We treat every 'key' from the old system as a Collection Name
-const getCollectionRef = (collectionName: string) => collection(db, collectionName);
+const getAuthInstance = (): any => {
+    if (!isInitialized) initialize();
+    return auth;
+}
+export { getAuthInstance as auth };
 
-// --- Real-Time Listeners ---
+
+// --- 4. Main Operations ---
+
+/**
+ * Listens to a collection and executes a callback on every change.
+ */
 export const subscribeToCollection = <T>(
     collectionName: string, 
     callback: (data: T[]) => void
 ): (() => void) => {
-    if (!db) return () => {};
-
-    // Basic query: Order by createdAt if available, or just get all docs
-    // In a real app, you might want to index specific fields
-    const q = query(collection(db, collectionName));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const items = snapshot.docs.map(doc => ({
-            ...doc.data(),
-            id: doc.id // Ensure ID is part of the object
-        })) as unknown as T[];
-        
+    const firestore = getDb();
+    const q = query(collection(firestore, collectionName));
+    return onSnapshot(q, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as unknown as T[];
         callback(items);
     }, (error) => {
         console.error(`Error listening to ${collectionName}:`, error);
     });
-
-    return unsubscribe;
 };
 
-// --- CRUD Operations ---
-
-/**
- * Saves a document. Using setDoc with merge:true acts as an Upsert (Update or Insert)
- * This supports Optimistic UI updates automatically via the SDK.
- */
 export const saveDocument = async <T extends { id: string }>(
     collectionName: string, 
-    data: WithFieldValue<T>
+    data: T
 ): Promise<void> => {
-    if (!db) return;
-    // @ts-ignore - ID is required
-    const docRef = doc(db, collectionName, data.id);
-    // Remove undefined values to prevent Firestore errors
-    const cleanData = JSON.parse(JSON.stringify(data));
+    const firestore = getDb();
+    if (!data.id) {
+        console.error("Attempted to save a document without an ID.", { collectionName, data });
+        return;
+    }
+    const docRef = doc(firestore, collectionName, data.id);
+    const cleanData = sanitizeData(data);
     await setDoc(docRef, cleanData, { merge: true });
 };
 
 export const deleteDocument = async (collectionName: string, docId: string): Promise<void> => {
-    if (!db) return;
-    await deleteDoc(doc(db, collectionName, docId));
+    const firestore = getDb();
+    const docRef = doc(firestore, collectionName, docId);
+    await firestoreDeleteDoc(docRef);
 };
 
-// --- Concurrency Safe ID Generation ---
-
-/**
- * Generates a unique, sequential ID using Firestore Transactions.
- * Prevents race conditions when multiple users create items simultaneously.
- */
 export const generateSequenceId = async (prefix: string, entityShortCode: string): Promise<string> => {
-    if (!db) return `${entityShortCode}${prefix}${Date.now()}`; // Fallback
-
-    const counterRef = doc(db, 'brooks_counters', `${entityShortCode}_${prefix}`);
-
+    const firestore = getDb();
+    const counterRef = doc(firestore, 'brooks_counters', `${entityShortCode}_${prefix}`);
     try {
-        const newId = await runTransaction(db, async (transaction) => {
+        const newId = await runTransaction(firestore, async (transaction) => {
             const counterDoc = await transaction.get(counterRef);
-            
-            let currentCount = 0;
-            if (counterDoc.exists()) {
-                currentCount = counterDoc.data().count || 0;
-            }
-
-            const nextCount = currentCount + 1;
-            
-            // Set the new count
+            const nextCount = (counterDoc.exists() ? (counterDoc.data().count || 0) : 0) + 1;
             transaction.set(counterRef, { count: nextCount }, { merge: true });
-            
             return nextCount;
         });
-
-        // Format: BPP99200001
         return `${entityShortCode}${prefix}${String(newId).padStart(5, '0')}`;
     } catch (e) {
         console.error("Transaction failed: ", e);
@@ -123,21 +157,26 @@ export const generateSequenceId = async (prefix: string, entityShortCode: string
     }
 };
 
-// --- Legacy Compatibility (To prevent breaking existing simple string storage) ---
 export const setItem = async (key: string, value: any) => {
-    // For simple key-value pairs (like settings), we store them in a 'brooks_settings' collection
-    if (!db) return;
-    if (typeof value !== 'object' || Array.isArray(value)) {
-        // If it's a raw array or primitive, wrap it
-        await setDoc(doc(db, 'brooks_settings', key), { value });
+    const firestore = getDb();
+    const cleanValue = sanitizeData(value);
+
+    if (Array.isArray(cleanValue)) {
+        const batchPromises = cleanValue.map(item => {
+            if (!item.id) return Promise.resolve();
+            const docRef = doc(firestore, key, item.id);
+            return setDoc(docRef, item, { merge: true });
+        });
+        await Promise.all(batchPromises);
     } else {
-         await setDoc(doc(db, 'brooks_settings', key), value);
+        const docRef = doc(firestore, 'brooks_settings', key);
+        await setDoc(docRef, cleanValue !== null && typeof cleanValue === 'object' ? cleanValue : { value: cleanValue }, { merge: true });
     }
 };
 
 export const getItem = async <T>(key: string): Promise<T | null> => {
-    if (!db) return null;
-    const snap = await getDoc(doc(db, 'brooks_settings', key));
+    const firestore = getDb();
+    const snap = await getDoc(doc(firestore, 'brooks_settings', key));
     if (snap.exists()) {
         const data = snap.data();
         return (data.value !== undefined ? data.value : data) as T;
@@ -146,5 +185,5 @@ export const getItem = async <T>(key: string): Promise<T | null> => {
 };
 
 export const clearStore = async () => {
-    console.warn("clearStore is not fully implemented for Firestore adapter. Local data will be cleared by the caller.");
+    console.warn("clearStore is not fully implemented for Firestore adapter.");
 };

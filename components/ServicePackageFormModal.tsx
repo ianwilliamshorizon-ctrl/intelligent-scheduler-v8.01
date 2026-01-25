@@ -4,21 +4,25 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatUtils';
 import FormModal from './FormModal';
 import SearchableSelect from './SearchableSelect';
+import ConfirmationModal from './ConfirmationModal';
 
 const ServicePackageFormModal = ({ isOpen, onClose, onSave, servicePackage, taxRates, entityId, businessEntities, parts }: { isOpen: boolean, onClose: () => void, onSave: (pkg: ServicePackage) => void, servicePackage: Partial<ServicePackage> | null, taxRates: TaxRate[], entityId: string, businessEntities: BusinessEntity[], parts: Part[] }) => {
     const [formData, setFormData] = useState<Partial<ServicePackage>>({});
     const standardTaxRateId = useMemo(() => taxRates.find(t => t.code === 'T1')?.id, [taxRates]);
     
-    // State for part search
     const [activeSearchRow, setActiveSearchRow] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const [isRenameModalOpen, setRenameModalOpen] = useState(false);
+    const [newPackageName, setNewPackageName] = useState('');
+
     useEffect(() => { 
         if (isOpen) {
-            setFormData(servicePackage 
+            const initialData = servicePackage 
                 ? { ...servicePackage, costItems: servicePackage.costItems || [] }
-                : { entityId, name: '', description: '', totalPrice: 0, costItems: [], taxCodeId: standardTaxRateId }
-            ); 
+                : { entityId, name: '', description: '', totalPrice: 0, costItems: [], taxCodeId: standardTaxRateId };
+            setFormData(initialData);
+            setNewPackageName(initialData.name || '');
         }
     }, [servicePackage, isOpen, entityId, standardTaxRateId]);
     
@@ -66,10 +70,27 @@ const ServicePackageFormModal = ({ isOpen, onClose, onSave, servicePackage, taxR
     const removeLine = (id: string) => setFormData(p => ({...p, costItems: (p.costItems||[]).filter(li => li.id !== id)}));
     
     const handleSave = () => { 
-        if(!formData.name || !formData.totalPrice) return alert('Package name and total price are required.'); 
-        onSave({id:formData.id || crypto.randomUUID(), ...formData} as ServicePackage);
-        onClose();
+        if (!formData.name && !newPackageName) {
+            setRenameModalOpen(true);
+        } else {
+            executeSave();
+        }
     };
+
+    const executeSave = () => {
+        const finalName = newPackageName || formData.name;
+        if(!finalName || !formData.totalPrice) { 
+            setRenameModalOpen(true);
+            return;
+        }
+        onSave({ ...formData, id: formData.id || crypto.randomUUID(), name: finalName } as ServicePackage);
+        onClose();
+    }
+
+    const handleConfirmRename = () => {
+        setRenameModalOpen(false);
+        executeSave();
+    }
     
     const handleSelectPart = (lineItemId: string, part: Part) => {
         setFormData(p => ({...p, costItems: (p.costItems||[]).map(li => li.id === lineItemId ? {
@@ -95,8 +116,9 @@ const ServicePackageFormModal = ({ isOpen, onClose, onSave, servicePackage, taxR
     }, [formData.costItems, formData.totalPrice]);
 
     return (
-        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} title={servicePackage?.id ? "Edit Service Package" : "Add Service Package"} maxWidth="max-w-5xl">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <>
+            <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} title={servicePackage?.id ? "Edit Service Package" : "Add Service Package"} maxWidth="max-w-5xl">
+                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Package Name</label>
                     <input name="name" value={formData.name || ''} onChange={handleChange} placeholder="e.g., Porsche 911 Minor Service" className="w-full p-2 border rounded" />
@@ -206,7 +228,30 @@ const ServicePackageFormModal = ({ isOpen, onClose, onSave, servicePackage, taxR
                     </div>
                 </div>
             </div>
-        </FormModal>
+            </FormModal>
+
+            <ConfirmationModal
+                isOpen={isRenameModalOpen}
+                onClose={() => setRenameModalOpen(false)}
+                onConfirm={handleConfirmRename}
+                title="Confirm Package Name"
+                message={
+                    <>
+                        <p>Please enter a name for this service package.</p>
+                        <input 
+                            type="text" 
+                            value={newPackageName}
+                            onChange={(e) => setNewPackageName(e.target.value)}
+                            placeholder="e.g., Porsche 911 Minor Service"
+                            className="w-full p-2 border rounded mt-2"
+                        />
+                    </>
+                }
+                confirmText="Save"
+                cancelText="Cancel"
+                type="warning"
+            />
+        </>
     );
 };
 

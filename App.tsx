@@ -8,7 +8,7 @@ import { setItem } from './core/db';
 import { getCustomerDisplayName } from './core/utils/customerUtils';
 import { formatDate } from './core/utils/dateUtils';
 import { useWorkshopActions } from './core/hooks/useWorkshopActions';
-import { addVehicle } from './services/test-firestore';
+
 
 // Layout
 import MainLayout from './components/MainLayout';
@@ -298,7 +298,7 @@ const App = () => {
 
     return (
         <MainLayout onOpenManagement={() => setIsManagementOpen(true)}>
-            <button onClick={addVehicle}>Add Vehicle</button>
+   
             {renderView()}
 
             <AppModals 
