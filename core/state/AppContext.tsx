@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import * as T from '../../types';
 import { usePersistentState } from './usePersistentState';
 import { getInitialUsers } from '../data/initialData';
 import { useData } from './DataContext';
-import { getInitialAppEnvironment } from '../config/firebaseConfig';
+import { getAppEnvironment } from '../config/firebaseConfig';
 
 export interface ConfirmationState {
     isOpen: boolean;
@@ -73,7 +73,13 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
 
     // Environment State
-    const [appEnvironment, setAppEnvironment] = usePersistentState<T.AppEnvironment>('brooks_environment', getInitialAppEnvironment);
+    const [appEnvironment, setAppEnvironment] = usePersistentState<T.AppEnvironment>('brooks_environment', getAppEnvironment);
+
+    useEffect(() => {
+        if (users.length === 0) {
+            setUsers(getInitialUsers());
+        }
+    }, [users, setUsers]);
 
     // Filter business entities to show in the main dropdown.
     // Restricted to only 'Workshop' types as requested.

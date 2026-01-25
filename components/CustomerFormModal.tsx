@@ -8,7 +8,6 @@ import { lookupAddressByPostcode } from '../services/postcodeLookupService';
 import { Loader2, Search, Briefcase, Car, ChevronDown, ChevronUp, FileText, Receipt } from 'lucide-react';
 import { useAuditLogger } from '../core/hooks/useAuditLogger';
 import { formatCurrency } from '../utils/formatUtils';
-import { addDocumentInCollection, updateDocumentInCollection } from '../core/db';
 
 const Section = ({ title, icon: Icon, children, defaultOpen = true }: { title: string, icon: React.ElementType, children?: React.ReactNode, defaultOpen?: boolean }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -26,6 +25,7 @@ const Section = ({ title, icon: Icon, children, defaultOpen = true }: { title: s
 interface CustomerFormModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSave: (customer: Customer) => void;
     customer: Partial<Customer> | null;
     existingCustomers: Customer[];
     jobs?: Job[];
@@ -142,7 +142,7 @@ const VehicleHistoryItem: React.FC<{ vehicle: Vehicle, jobs: Job[], estimates: E
     );
 };
 
-const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, customer, existingCustomers, jobs, vehicles, estimates, invoices, onViewVehicle }) => {
+const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, onSave, customer, existingCustomers, jobs, vehicles, estimates, invoices, onViewVehicle }) => {
     const [formData, setFormData] = useState<Partial<Customer>>({});
     const [isLookingUpAddress, setIsLookingUpAddress] = useState(false);
     const [addressLookupError, setAddressLookupError] = useState('');
@@ -202,7 +202,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = () => {
         if (formData.isBusinessCustomer && !formData.companyName) {
             alert("Company Name is required for business customers.");
             return;
@@ -211,39 +211,16 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
             alert("Please enter the customer's forename, surname, and at least one contact method (Telephone, Mobile, or Email).");
             return;
         }
-    
-        const isNew = !formData.id;
-    
-        try {
-            if (isNew) {
-                const newCustomerData = {
-                    ...formData,
-                    createdDate: formatDate(new Date()),
-                };
-                delete newCustomerData.id; // Ensure no 'id' field is sent for new doc
-    
-                const newId = await addDocumentInCollection('brooks_customers', newCustomerData);
-                logEvent('CREATE', 'Customer', newId, `Created customer: ${getCustomerDisplayName({ ...newCustomerData, id: newId } as Customer)}.`);
-            } else {
-                const { id, ...updateData } = formData;
-                if (!id) {
-                    console.error("Cannot update customer without an ID.");
-                    alert("An error occurred: Cannot update customer without an ID.");
-                    return;
-                }
-                
-                await updateDocumentInCollection('brooks_customers', id, updateData);
-                logEvent('UPDATE', 'Customer', id, `Updated customer: ${getCustomerDisplayName(formData as Customer)}.`);
-            }
-            onClose();
-        } catch (error) {
-            console.error("Error saving customer:", error);
-            alert(`An error occurred while saving the customer: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    };
 
-    const handleForceSave = () => {
-        handleSave();
+        const isNew = !formData.id;
+        const newCustomer: Customer = {
+            id: formData.id || generateCustomerId(formData.surname!, existingCustomers),
+            createdDate: formData.createdDate || formatDate(new Date()),
+            ...formData,
+        } as Customer;
+
+        onSave(newCustomer);
+        logEvent(isNew ? 'CREATE' : 'UPDATE', 'Customer', newCustomer.id, `${isNew ? 'Created' : 'Updated'} customer: ${getCustomerDisplayName(newCustomer)}.`);
     };
     
     const customerVehicles = useMemo(() => {
@@ -266,7 +243,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
     }, [customer, customerVehicles, jobs, estimates, invoices]);
 
     return (
-        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} onForceSave={handleForceSave} title={customer?.id ? 'Edit Customer' : 'Add Customer'} maxWidth="max-w-4xl">
+        <FormModal isOpen={isOpen} onClose={onClose} onSave={handleSave} title={customer?.id ? 'Edit Customer' : 'Add Customer'} maxWidth="max-w-4xl">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <div className="md:col-span-3 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

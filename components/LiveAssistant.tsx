@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../core/state/DataContext';
 import { useApp } from '../core/state/AppContext';
 import { X, Send, BrainCircuit, Mic } from 'lucide-react';
-import { Job, Vehicle, Customer, Part, ServicePackage, Note } from '../types';
+import { Job, Vehicle, Customer, Part, ServicePackage } from '../types';
+import { Note } from '../types/index';
 import { getJobById } from '../core/utils/jobUtils';
 
 interface LiveAssistantProps {
@@ -144,6 +145,7 @@ const LiveAssistant: React.FC<LiveAssistantProps> = ({ isOpen, onClose, jobId, o
                                     <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></div>
                                     <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }}></div>
                                     <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" style={{ animationDelay: '400ms' }}></div>
+
                                 </div>
                             </div>
                         </div>
