@@ -1,5 +1,17 @@
+// --- Global Enums & Constants ---
+export type ViewType = 
+  | 'dashboard' | 'calendar' | 'list' | 'settings' | 'management' 
+  | 'estimates' | 'invoices' | 'dispatch' | 'workflow' | 'jobs' 
+  | 'purchaseOrders' | 'sales' | 'storage' | 'rentals' 
+  | 'concierge' | 'communications' | 'absence' | 'inquiries';
 
-// types/index.ts
+export interface BackupSchedule {
+  enabled: boolean;
+  times: string[];
+  frequency?: 'daily' | 'weekly' | 'monthly';
+}
+
+export type AppEnvironment = 'development' | 'production' | 'staging' | 'Development' | 'Production';
 
 // --- Core Data Models ---
 
@@ -23,13 +35,13 @@ export interface Customer {
     serviceReminderConsent: boolean;
     communicationPreference: 'None' | 'Email' | 'WhatsApp' | 'SMS';
     isBusinessCustomer: boolean;
-    companyName?: string; // Made optional as not all customers are businesses
+    companyName?: string;
 }
 
 export interface Vehicle {
     id: string;
     customerId: string;
-    owner?: string; // Optional
+    owner?: string;
     registration: string;
     make: string;
     model: string;
@@ -46,7 +58,6 @@ export interface Vehicle {
     manufactureDate?: string;
     covid19MOTExemption?: boolean;
     images?: { id: string, url: string, isPrimaryDiagram?: boolean }[];
-    // Deprecated vehicleImages, kept for data migration if needed
     vehicleImages?: string[];
 }
 
@@ -70,7 +81,8 @@ export interface Job {
     inspectionChecklist?: ChecklistSection[];
     tyreCheck?: TyreCheckData;
     damagePoints?: VehicleDamagePoint[];
-    status: string; // Could be more specific, e.g., 'Unallocated', 'Allocated', 'In Progress'
+    status: string; 
+    vehicleStatus?: string;
     createdAt: string;
     isPaused?: boolean;
     pausedTimestamp?: string;
@@ -82,11 +94,15 @@ export interface JobSegment {
     description: string;
     estimatedHours: number;
     assignedTo: string; // Engineer ID
-    status: 'Pending' | 'In Progress' | 'Completed' | 'Paused';
+    status: 'Pending' | 'In Progress' | 'Completed' | 'Paused' | 'Unallocated' | 'Engineer Complete';
     actualHours?: number;
     startTime?: string;
     endTime?: string;
     notes?: string;
+    date?: string; 
+    allocatedLift?: string;
+    engineerId?: string;
+    scheduledStartSegment?: number;
 }
 
 export interface Invoice {
@@ -97,14 +113,15 @@ export interface Invoice {
     vehicleId: string;
     issueDate: string;
     dueDate: string;
-    status: 'Draft' | 'Sent' | 'Paid' | 'Overdue' | 'Void';
+    status: 'Draft' | 'Sent' | 'Paid' | 'Overdue' | 'Void' | 'Part Paid';
     lineItems: EstimateLineItem[];
     payments: Payment[];
-    versionHistory: any[]; // Or a more specific type
+    versionHistory: any[];
     total?: number;
     vatAmount?: number;
     subtotal?: number;
     notes?: string;
+    createdByUserId?: string;
 }
 
 export interface Estimate {
@@ -115,7 +132,7 @@ export interface Estimate {
     vehicleId: string;
     issueDate: string;
     expiryDate: string;
-    status: 'Draft' | 'Sent' | 'Approved' | 'Declined' | 'Converted';
+    status: 'Draft' | 'Sent' | 'Approved' | 'Declined' | 'Converted' | 'Converted to Job' | 'Closed';
     lineItems: EstimateLineItem[];
     notes?: string;
     createdByUserId: string;
@@ -139,6 +156,7 @@ export interface EstimateLineItem {
     partNumber?: string;
     partId?: string;
     fromStock?: boolean;
+    isOptional?: boolean;
 }
 
 export interface Part {
@@ -171,6 +189,7 @@ export interface PurchaseOrder {
     notes?: string;
     shippingCost?: number;
     supplierInvoiceRef?: string;
+    vehicleRegistrationRef?: string;
 }
 
 export interface PurchaseOrderLineItem {
@@ -200,11 +219,13 @@ export interface ServicePackage {
     entityId: string;
     name: string;
     description?: string;
-    totalPrice: number; // This might be calculated from items, or a fixed price
+    totalPrice: number;
     costItems: EstimateLineItem[];
     taxCodeId: string;
     created: string;
     lastUpdated: string;
+    applicableMake?: string;
+    applicableModel?: string;
 }
 
 export interface Supplier {
@@ -226,9 +247,9 @@ export interface Inquiry {
     id: string;
     entityId: string;
     createdAt: string;
-    source: 'Phone' | 'Email' | 'Website' | 'In-Person';
+    source: 'Phone' | 'Email' | 'Website' | 'In-Person' | string;
     fromName: string;
-    fromContact: string; // e.g. email or phone
+    fromContact: string;
     message: string;
     takenByUserId: string;
     assignedToUserId?: string;
@@ -238,6 +259,7 @@ export interface Inquiry {
     linkedEstimateId?: string;
     linkedJobId?: string;
     linkedPurchaseOrderIds?: string[];
+    actionNotes?: string;
 }
 
 export interface Prospect {
@@ -250,29 +272,33 @@ export interface Prospect {
     status: 'New' | 'Contacted' | 'Qualified' | 'Lost';
 }
 
-
 // --- System & Configuration Models ---
 
 export interface User {
     id: string;
     name: string;
-    role: 'Admin' | 'Dispatcher' | 'Engineer' | 'Sales' | 'User'; // Example roles
+    role: 'Admin' | 'Dispatcher' | 'Engineer' | 'Sales' | 'User' | string;
     email?: string;
-    engineerId?: string; // If role is Engineer
+    password?: string;
+    engineerId?: string;
     holidayApproverId?: string;
     holidayEntitlement?: number;
+    allowedViews?: ViewType[];
 }
 
 export interface Role {
     id: string;
     name: string;
-    permissions: string[]; // List of permission keys
+    permissions: string[];
+    baseRole?: string;
+    defaultAllowedViews?: ViewType[];
 }
 
 export interface BusinessEntity {
     id: string;
     name: string;
     shortCode: string;
+    type?: string;
     color?: string;
     addressLine1?: string;
     city?: string;
@@ -296,13 +322,19 @@ export interface NominalCode {
     code: string;
     name: string;
     description?: string;
+    secondaryCode?: string;
 }
 
 export interface NominalCodeRule {
     id: string;
     description: string;
-    criteria: any; // Simplified, should be a structured query
+    criteria: any;
     nominalCodeId: string;
+    priority?: number;
+    entityId?: string;
+    itemType?: string;
+    keywords?: string[];
+    excludeKeywords?: string[];
 }
 
 // --- Workshop & Scheduling ---
@@ -312,7 +344,7 @@ export interface Engineer {
     entityId: string;
     name: string;
     specialization?: string;
-    color?: string; // For calendar display
+    color?: string;
 }
 
 export interface Lift {
@@ -337,7 +369,7 @@ export interface AbsenceRequest {
 export interface Reminder {
     id: string;
     userId: string;
-    relatedToId: string; // e.g. Job ID, Inquiry ID
+    relatedToId: string;
     relatedToType: 'Job' | 'Inquiry' | 'Customer';
     dueDate: string;
     message: string;
@@ -370,7 +402,7 @@ export interface TyreCheckData {
 
 export interface TyreReading {
     pressure: number;
-    treadDepth: number[]; // e.g. [inner, middle, outer]
+    treadDepth: number[];
     notes?: string;
 }
 
@@ -383,11 +415,13 @@ export interface VehicleDamagePoint {
 }
 
 export interface InspectionDiagram {
-id: string;
-name: string;
-imageUrl: string;
+    id: string;
+    name: string;
+    imageUrl: string;
+    make?: string;
+    model?: string;
+    imageId?: string;
 }
-
 
 // --- Financial & Payments ---
 
@@ -400,7 +434,7 @@ export interface Payment {
     notes?: string;
 }
 
-// --- Sales, Storage & Rentals (Less defined, but placeholders for the errors) ---
+// --- Sales, Storage & Rentals ---
 
 export interface SaleVehicle {
     id: string;
@@ -456,7 +490,7 @@ export interface BatteryCharger {
     id: string;
     name: string;
     location: string;
-    assignedToBookingId?: string; // StorageBooking ID
+    assignedToBookingId?: string;
 }
 
 // --- Miscellaneous ---
@@ -473,11 +507,9 @@ export interface AuditLogEntry {
     id: string;
     timestamp: string;
     userId: string;
-    action: string; // e.g. 'job.create', 'customer.update'
+    action: string;
     details: any;
 }
 
-// These were placeholders before, giving them minimal structure.
 export interface UnbillableTimeEvent {}
 export interface EngineerChangeEvent {}
-''

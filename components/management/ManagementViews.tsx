@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useData } from '../../core/state/DataContext';
 import { useApp } from '../../core/state/AppContext';
@@ -8,11 +7,11 @@ import { formatCurrency } from '../../utils/formatUtils';
 import AsyncImage from '../AsyncImage';
 
 // Helper for row selection checkboxes
-const CheckboxCell = ({ id, selectedIds, onToggle }: { id: string, selectedIds: Set<string>, onToggle: (id: string) => void }) => (
+const CheckboxCell = ({ id, selectedIds, onToggle }: { id: string, selectedIds: any, onToggle: (id: string) => void }) => (
     <td className="p-2 text-center">
         <input 
             type="checkbox" 
-            checked={selectedIds.has(id)} 
+            checked={selectedIds?.has?.(id) || false} 
             onChange={() => onToggle(id)}
             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
         />
@@ -32,18 +31,25 @@ export const ManagementCustomersTab = ({
     onBulkDelete
 }: any) => {
     const { customers } = useData();
-    const filtered = customers.filter(c => 
-        `${c.forename} ${c.surname}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.companyName || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+
+    const filtered = (customers || []).filter(c => {
+        const searchTermLower = searchTerm?.toLowerCase() || '';
+        return (
+          (c.forename?.toLowerCase() || '').includes(searchTermLower) || 
+          (c.surname?.toLowerCase() || '').includes(searchTermLower) ||
+          (c.id?.toLowerCase() || '').includes(searchTermLower)
+        );
+    });
+
+    const selectionSize = selectedIds?.size ?? 0;
 
     return (
         <div>
             <div className="flex justify-between items-center mb-4">
                  <div className="flex items-center gap-2">
-                    {selectedIds.size > 0 && (
+                    {selectionSize > 0 && (
                         <button onClick={onBulkDelete} className="bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 flex items-center gap-2 text-sm font-semibold">
-                            <Trash2 size={16}/> Delete ({selectedIds.size})
+                            <Trash2 size={16}/> Delete ({selectionSize})
                         </button>
                     )}
                 </div>
@@ -62,7 +68,12 @@ export const ManagementCustomersTab = ({
                     <thead className="bg-gray-100 sticky top-0">
                         <tr>
                             <th className="p-2 w-10 text-center">
-                                <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={() => onSelectAll(filtered)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                <input 
+                                    type="checkbox" 
+                                    checked={selectionSize === filtered.length && filtered.length > 0} 
+                                    onChange={() => onSelectAll(filtered)} 
+                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                                />
                             </th>
                             <th className="p-2">Name</th><th className="p-2">Account No</th><th className="p-2">Contact</th><th className="p-2">Postcode</th><th className="p-2">Actions</th>
                         </tr>
@@ -103,19 +114,21 @@ export const ManagementVehiclesTab = ({
     isUpdating
 }: any) => {
     const { vehicles, customers } = useData();
-    const filtered = vehicles.filter(v => 
-        v.registration.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.model.toLowerCase().includes(searchTerm.toLowerCase())
+    const filtered = (vehicles || []).filter(v => 
+        (v.registration?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '') ||
+        (v.make?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '') ||
+        (v.model?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '')
     );
+
+    const selectionSize = selectedIds?.size ?? 0;
 
     return (
         <div>
              <div className="flex justify-between items-center mb-4">
                  <div className="flex items-center gap-2">
-                     {selectedIds.size > 0 && (
+                     {selectionSize > 0 && (
                         <button onClick={onBulkDelete} className="bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 flex items-center gap-2 text-sm font-semibold">
-                            <Trash2 size={16}/> Delete ({selectedIds.size})
+                            <Trash2 size={16}/> Delete ({selectionSize})
                         </button>
                     )}
                 </div>
@@ -137,14 +150,14 @@ export const ManagementVehiclesTab = ({
                     <thead className="bg-gray-100 sticky top-0">
                         <tr>
                             <th className="p-2 w-10 text-center">
-                                <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={() => onSelectAll(filtered)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                <input type="checkbox" checked={selectionSize === filtered.length && filtered.length > 0} onChange={() => onSelectAll(filtered)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                             </th>
                             <th className="p-2">Registration</th><th className="p-2">Make/Model</th><th className="p-2">Owner</th><th className="p-2">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filtered.map(v => {
-                            const owner = customers.find(c => c.id === v.customerId);
+                            const owner = (customers || []).find(c => c.id === v.customerId);
                             return (
                                 <tr key={v.id} className="border-b hover:bg-gray-50">
                                     <CheckboxCell id={v.id} selectedIds={selectedIds} onToggle={onToggleSelection} />
@@ -174,9 +187,9 @@ export const ManagementDiagramsTab = ({
     onBulkUpload
 }: any) => {
     const { inspectionDiagrams } = useData();
-    const filtered = inspectionDiagrams.filter(d => 
-        d.make.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        d.model.toLowerCase().includes(searchTerm.toLowerCase())
+    const filtered = (inspectionDiagrams || []).filter(d => 
+        (d.make?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '') || 
+        (d.model?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '')
     );
 
     return (
@@ -232,7 +245,7 @@ export const ManagementStaffTab = ({ onAdd, onEdit, onDelete }: any) => {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-gray-100 sticky top-0"><tr><th className="p-2">Name</th><th className="p-2">Role</th><th className="p-2">Actions</th></tr></thead>
                     <tbody>
-                        {users.map(u => (
+                        {(users || []).map(u => (
                             <tr key={u.id} className="border-b hover:bg-gray-50">
                                 <td className="p-2 font-medium">{u.name}</td>
                                 <td className="p-2">{u.role}</td>
@@ -263,7 +276,7 @@ export const ManagementRolesTab = ({ onAdd, onEdit }: any) => {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-gray-100 sticky top-0"><tr><th className="p-2">Role Name</th><th className="p-2">Base Permissions</th><th className="p-2">Actions</th></tr></thead>
                     <tbody>
-                        {roles.map(r => (
+                        {(roles || []).map(r => (
                             <tr key={r.id} className="border-b hover:bg-gray-50">
                                 <td className="p-2 font-medium">{r.name}</td>
                                 <td className="p-2">{r.baseRole}</td>
@@ -290,7 +303,7 @@ export const ManagementEntitiesTab = ({ onAdd, onEdit, onImportJobs, onImportInv
                 </button>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto max-h-[70vh]">
-                {businessEntities.map(e => (
+                {(businessEntities || []).map(e => (
                     <div key={e.id} className={`p-4 border-2 rounded-lg transition-all border-${e.color}-200 bg-white relative group`}>
                         <div className={`w-full h-2 bg-${e.color}-500 rounded-t mb-2`}></div>
                         <div className="flex justify-between items-start cursor-pointer" onClick={() => onEdit(e)}>
@@ -331,7 +344,7 @@ export const ManagementSuppliersTab = ({ onAdd, onEdit, onDelete }: any) => {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-gray-100 sticky top-0"><tr><th className="p-2">Company Name</th><th className="p-2">Contact Person</th><th className="p-2">Details</th><th className="p-2">Actions</th></tr></thead>
                     <tbody>
-                        {suppliers.map(s => (
+                        {(suppliers || []).map(s => (
                             <tr key={s.id} className="border-b hover:bg-gray-50">
                                 <td className="p-2 font-medium">{s.name}</td>
                                 <td className="p-2">{s.contactName}</td>
@@ -352,7 +365,10 @@ export const ManagementSuppliersTab = ({ onAdd, onEdit, onDelete }: any) => {
 // --- 8. Parts Tab ---
 export const ManagementPartsTab = ({ searchTerm, onAdd, onEdit, onDelete, onImport }: any) => {
     const { parts } = useData();
-    const filtered = parts.filter(p => p.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) || p.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filtered = (parts || []).filter(p => 
+        (p.partNumber?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '') || 
+        (p.description?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '')
+    );
 
     return (
         <div>
@@ -402,7 +418,7 @@ export const ManagementPackagesTab = ({ onAdd, onEdit, onDelete }: any) => {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-gray-100 sticky top-0"><tr><th className="p-2">Package Name</th><th className="p-2 text-right">Total Price</th><th className="p-2">Actions</th></tr></thead>
                     <tbody>
-                        {servicePackages.map(p => (
+                        {(servicePackages || []).map(p => (
                             <tr key={p.id} className="border-b hover:bg-gray-50">
                                 <td className="p-2 font-medium">{p.name}</td>
                                 <td className="p-2 text-right">{formatCurrency(p.totalPrice)}</td>
@@ -438,7 +454,7 @@ export const ManagementNominalCodesTab = ({
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-100 sticky top-0"><tr><th className="p-2">Code</th><th className="p-2">Name</th><th className="p-2">Secondary Code</th><th className="p-2">Actions</th></tr></thead>
                         <tbody>
-                            {nominalCodes.map(nc => (
+                            {(nominalCodes || []).map(nc => (
                                 <tr key={nc.id} className="border-b hover:bg-gray-50">
                                     <td className="p-2 font-mono font-bold">{nc.code}</td>
                                     <td className="p-2">{nc.name}</td>
@@ -475,9 +491,9 @@ export const ManagementNominalCodesTab = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {[...nominalCodeRules].sort((a, b) => b.priority - a.priority).map(rule => {
-                                const code = nominalCodes.find(c => c.id === rule.nominalCodeId);
-                                const entity = businessEntities.find(e => e.id === rule.entityId);
+                            {[...(nominalCodeRules || [])].sort((a, b) => b.priority - a.priority).map(rule => {
+                                const code = (nominalCodes || []).find(c => c.id === rule.nominalCodeId);
+                                const entity = (businessEntities || []).find(e => e.id === rule.entityId);
                                 return (
                                     <tr key={rule.id} className="border-b hover:bg-gray-50">
                                         <td className="p-2 text-center font-mono">{rule.priority}</td>

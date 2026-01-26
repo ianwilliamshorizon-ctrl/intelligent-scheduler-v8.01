@@ -9,6 +9,14 @@ import { getRelativeDate } from '../core/utils/dateUtils';
 import PrintableEstimateList from './PrintableEstimateList';
 import { usePrint } from '../core/hooks/usePrint';
 
+// Define the interface to match what App.tsx is sending
+interface EstimatesViewProps {
+    onOpenEstimateModal: (estimate: Partial<Estimate> | null) => void;
+    onViewEstimate: (estimate: Estimate) => void;
+    onSmartCreateClick: () => void;
+    onOpenServicePackageModal?: (pkg: any) => void; // Added to resolve TS2322
+}
+
 const StatusFilter = ({ statuses, selectedStatuses, onToggle }: { statuses: readonly Estimate['status'][]; selectedStatuses: Estimate['status'][]; onToggle: (status: Estimate['status']) => void; }) => (
     <div className="flex flex-wrap gap-2 items-center">
         <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
@@ -28,7 +36,7 @@ const StatusFilter = ({ statuses, selectedStatuses, onToggle }: { statuses: read
     </div>
 );
 
-const EstimatesView = ({ onOpenEstimateModal, onViewEstimate, onSmartCreateClick }: { onOpenEstimateModal: (estimate: Partial<Estimate> | null) => void; onViewEstimate: (estimate: Estimate) => void; onSmartCreateClick: () => void; }) => {
+const EstimatesView = ({ onOpenEstimateModal, onViewEstimate, onSmartCreateClick, onOpenServicePackageModal }: EstimatesViewProps) => {
     const { estimates, customers, vehicles, taxRates, setServicePackages, servicePackages, businessEntities } = useData();
     const { selectedEntityId, users } = useApp();
     const print = usePrint();
