@@ -34,6 +34,7 @@ import CheckOutModal from './CheckOutModal';
 import EstimateFormModal from './EstimateFormModal';
 import EstimateViewModal from './EstimateViewModal';
 import SmartCreateJobModal from './SmartCreateJobModal';
+import ServicePackageFormModal from './ServicePackageFormModal';
 
 interface AppModalsProps {
     modals: {
@@ -67,6 +68,7 @@ interface AppModalsProps {
         inquiryModal: { isOpen: boolean; inquiry: Partial<T.Inquiry> | null };
         isAssistantOpen: boolean;
         assistantContextJobId: string | null;
+        servicePackageFormModal: { isOpen: boolean; servicePackage: Partial<T.ServicePackage> | null };
     };
     setters: any; // Using any for brevity in this extraction refactor, ideal to type strictly later
     actions: any;
@@ -79,7 +81,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
         nominalCodes, nominalCodeRules, rentalBookings, rentalVehicles, 
         saleVehicles, prospects, absenceRequests, setPurchaseOrders, setJobs, 
         setEstimates, setInvoices, setStorageBookings, setRentalBookings, 
-        setSaleVehicles, setProspects, setInquiries, setParts,
+        setSaleVehicles, setProspects, setInquiries, setParts, setServicePackages,
         saleOverheadPackages, inquiries
     } = useData();
     
@@ -383,6 +385,19 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                 />
             )}
 
+            {modals.servicePackageFormModal.isOpen && (
+                <ServicePackageFormModal
+                    isOpen={modals.servicePackageFormModal.isOpen}
+                    onClose={() => setters.setServicePackageFormModal({ isOpen: false, servicePackage: null })}
+                    onSave={(pkg) => handleSaveItem(setServicePackages, pkg)}
+                    servicePackage={modals.servicePackageFormModal.servicePackage}
+                    taxRates={taxRates}
+                    entityId={selectedEntityId}
+                    businessEntities={businessEntities}
+                    parts={parts}
+                />
+            )}
+
             {modals.scheduleJobFromEstimateModal.isOpen && modals.scheduleJobFromEstimateModal.estimate && (
                 <ScheduleJobFromEstimateModal 
                     isOpen={modals.scheduleJobFromEstimateModal.isOpen}
@@ -422,7 +437,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                         const jobToSave: T.Job = {
                             ...job,
                             partsStatus: newPOs.length > 0 ? 'Awaiting Order' : 'Not Required',
-                            purchaseOrderIds: newPurchaseOrderIds.length > 0 ? newPurchaseOrderIds : undefined,
+                            purchaseOrderIds: newPOs.length > 0 ? newPurchaseOrderIds : undefined,
                             createdByUserId: currentUser.id
                         };
 

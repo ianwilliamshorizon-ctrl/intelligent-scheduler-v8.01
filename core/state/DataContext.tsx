@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import * as T from '../../types';
 import { usePersistentState } from './usePersistentState';
+// Removed saveServicePackage from here as it's missing or renamed
+import { setItem, subscribeToCollection } from '../db'; 
 import {
     getInitialJobs, getInitialVehicles, getInitialCustomers, getInitialEngineers,
     getInitialEstimates, getInitialInvoices, getInitialPurchaseOrders,
@@ -13,7 +15,6 @@ import {
     getInitialReminders, getInitialAuditLog, getInitialRoles, getInitialInspectionDiagrams
 } from '../data/initialData';
 import { saveImage } from '../../utils/imageStore';
-import { setItem, subscribeToCollection } from '../db';
 
 interface DataContextType {
     jobs: T.Job[]; setJobs: React.Dispatch<React.SetStateAction<T.Job[]>>;
@@ -47,12 +48,13 @@ interface DataContextType {
     roles: T.Role[]; setRoles: React.Dispatch<React.SetStateAction<T.Role[]>>;
     inspectionDiagrams: T.InspectionDiagram[]; setInspectionDiagrams: React.Dispatch<React.SetStateAction<T.InspectionDiagram[]>>;
     forceSave: () => void;
+    // Updated signature: removed 'Promise' if it's no longer calling an async db function directly
+    handleSavePackage: (pkg: T.ServicePackage) => void; 
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // --- Initialize Persistent State ---
     const [jobs, setJobs] = usePersistentState<T.Job[]>('brooks_jobs', getInitialJobs);
     const [vehicles, setVehicles] = usePersistentState<T.Vehicle[]>('brooks_vehicles', getInitialVehicles);
     const [customers, setCustomers] = useState<T.Customer[]>(getInitialCustomers);
@@ -86,15 +88,13 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     useEffect(() => {
         const unsubscribe = subscribeToCollection<T.Customer>('brooks_customers', (updatedCustomers) => {
-            if (updatedCustomers) {
-                setCustomers(updatedCustomers);
-            }
+            if (updatedCustomers) setCustomers(updatedCustomers);
         });
-
         return () => unsubscribe();
     }, []);
 
     const forceSave = () => {
+        // Keeps local persistence while you build data
         setItem('brooks_jobs', jobs);
         setItem('brooks_vehicles', vehicles);
         setItem('brooks_estimates', estimates);
@@ -125,8 +125,20 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setItem('brooks_roles', roles);
         setItem('brooks_inspectionDiagrams', inspectionDiagrams);
     };
+    
+    // FIX: Removed the broken 'saveServicePackage' call. 
+    // State is updated locally; use ManagementModal for cloud commitment.
+    const handleSavePackage = (pkg: T.ServicePackage) => {
+        setServicePackages(prev => {
+            const exists = prev.some(p => p.id === pkg.id);
+            if (exists) {
+                return prev.map(p => p.id === pkg.id ? pkg : p);
+            }
+            return [pkg, ...prev];
+        });
+    };
 
-    // Migration Logic for Images (One-time run to move data URLs from JSON to IndexedDB)
+    // Image Migration logic preserved
     useEffect(() => {
         const migrate = async () => {
             let vChanged = false;
@@ -145,41 +157,22 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
             if (vChanged) setVehicles(updatedVehicles);
         };
         migrate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const value = useMemo(() => ({
-        jobs, setJobs,
-        vehicles, setVehicles,
-        customers, setCustomers,
-        estimates, setEstimates,
-        invoices, setInvoices,
-        purchaseOrders, setPurchaseOrders,
-        purchases, setPurchases,
-        parts, setParts,
-        servicePackages, setServicePackages,
-        suppliers, setSuppliers,
-        engineers, setEngineers,
-        lifts, setLifts,
-        rentalVehicles, setRentalVehicles,
-        rentalBookings, setRentalBookings,
-        saleVehicles, setSaleVehicles,
-        saleOverheadPackages, setSaleOverheadPackages,
-        prospects, setProspects,
-        storageBookings, setStorageBookings,
-        storageLocations, setStorageLocations,
-        batteryChargers, setBatteryChargers,
-        nominalCodes, setNominalCodes,
-        nominalCodeRules, setNominalCodeRules,
-        absenceRequests, setAbsenceRequests,
-        inquiries, setInquiries,
-        reminders, setReminders,
-        auditLog, setAuditLog,
-        businessEntities, setBusinessEntities,
-        taxRates, setTaxRates,
-        roles, setRoles,
-        inspectionDiagrams, setInspectionDiagrams,
-        forceSave,
+        jobs, setJobs, vehicles, setVehicles, customers, setCustomers,
+        estimates, setEstimates, invoices, setInvoices, purchaseOrders, setPurchaseOrders,
+        purchases, setPurchases, parts, setParts, servicePackages, setServicePackages,
+        suppliers, setSuppliers, engineers, setEngineers, lifts, setLifts,
+        rentalVehicles, setRentalVehicles, rentalBookings, setRentalBookings,
+        saleVehicles, setSaleVehicles, saleOverheadPackages, setSaleOverheadPackages,
+        prospects, setProspects, storageBookings, setStorageBookings,
+        storageLocations, setStorageLocations, batteryChargers, setBatteryChargers,
+        nominalCodes, setNominalCodes, nominalCodeRules, setNominalCodeRules,
+        absenceRequests, setAbsenceRequests, inquiries, setInquiries,
+        reminders, setReminders, auditLog, setAuditLog, businessEntities, setBusinessEntities,
+        taxRates, setTaxRates, roles, setRoles, inspectionDiagrams, setInspectionDiagrams,
+        forceSave, handleSavePackage,
     }), [jobs, vehicles, customers, estimates, invoices, purchaseOrders, purchases, parts, servicePackages, suppliers, engineers, lifts, rentalVehicles, rentalBookings, saleVehicles, saleOverheadPackages, prospects, storageBookings, storageLocations, batteryChargers, nominalCodes, nominalCodeRules, absenceRequests, inquiries, reminders, auditLog, businessEntities, taxRates, roles, inspectionDiagrams]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -187,8 +180,6 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
 export const useData = (): DataContextType => {
     const context = useContext(DataContext);
-    if (!context) {
-        throw new Error('useData must be used within a DataContextProvider');
-    }
+    if (!context) throw new Error('useData must be used within a DataContextProvider');
     return context;
 };

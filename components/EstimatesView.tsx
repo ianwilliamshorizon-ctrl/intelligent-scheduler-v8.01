@@ -2,9 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '../core/state/DataContext';
 import { useApp } from '../core/state/AppContext';
 import { Estimate, EstimateLineItem, Vehicle } from '../types';
-import { Plus, Eye, Edit, Trash2, Search, PlusCircle, Wand2, ChevronDown, ChevronUp, Loader2, Printer } from 'lucide-react';
+import { Plus, Eye, Edit, Search, PlusCircle, Wand2, ChevronDown, ChevronUp, Loader2, Printer } from 'lucide-react';
 import { formatCurrency } from '../core/utils/formatUtils';
-import { generateServicePackageName } from '../core/services/geminiService';
+import { generateAndSaveServicePackage } from '../core/services/geminiService';
 import { getRelativeDate } from '../core/utils/dateUtils';
 import PrintableEstimateList from './PrintableEstimateList';
 import { usePrint } from '../core/hooks/usePrint';
@@ -98,25 +98,21 @@ const EstimatesView = ({ onOpenEstimateModal, onViewEstimate, onSmartCreateClick
 
         setIsCreatingPackage(true);
         try {
-            const { name, description } = await generateServicePackageName(estimate.lineItems, vehicle.make, vehicle.model);
             const totalNet = (estimate.lineItems || []).filter(item => !item.isPackageComponent).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-
-            const newPackage: any = {
-                id: `pkg_${Date.now()}`,
-                entityId: estimate.entityId,
-                name,
-                description,
-                totalPrice: totalNet, // Using net price for simplicity
-                costItems: estimate.lineItems.map(li => ({...li, id: crypto.randomUUID()})),
-                applicableMake: vehicle.make,
-                applicableModel: vehicle.model,
-            };
+            
+            const newPackage = await generateAndSaveServicePackage(
+                estimate.lineItems,
+                vehicle.make,
+                vehicle.model,
+                estimate.entityId,
+                totalNet
+            );
             
             setServicePackages(prev => [...prev, newPackage]);
-            alert(`Service Package "${name}" created successfully!`);
+            alert(`Service Package "${newPackage.name}" created successfully!`);
 
         } catch (error: any) {
-            alert(`AI failed to create package: ${error.message}`);
+            alert(`Failed to create package: ${error.message}`);
         } finally {
             setIsCreatingPackage(false);
         }

@@ -8,6 +8,7 @@ import { setItem } from './core/db';
 import { getCustomerDisplayName } from './core/utils/customerUtils';
 import { formatDate } from './core/utils/dateUtils';
 import { useWorkshopActions } from './core/hooks/useWorkshopActions';
+import { ToastProvider } from './hooks/useToast';
 
 
 // Layout
@@ -103,6 +104,9 @@ const App = () => {
 
     // Inquiry Modal
     const [inquiryModal, setInquiryModal] = useState<{ isOpen: boolean; inquiry: Partial<T.Inquiry> | null }>({ isOpen: false, inquiry: null });
+
+    // Service Package Modal
+    const [servicePackageFormModal, setServicePackageFormModal] = useState<{ isOpen: boolean; servicePackage: Partial<T.ServicePackage> | null }>({ isOpen: false, servicePackage: null });
 
     // Assistant
     const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -246,7 +250,7 @@ const App = () => {
             case 'dispatch': return <DispatchView setDefaultDateForModal={setSmartCreateDefaultDate} setIsSmartCreateOpen={setIsSmartCreateOpen} setSmartCreateMode={setSmartCreateMode} setSelectedJobId={setSelectedJobId} setIsEditModalOpen={setIsEditJobModalOpen} onOpenPurchaseOrder={(po) => setViewPoModal({isOpen: true, po})} onReassignEngineer={workshopActions.handleReassignEngineer} onCheckIn={(id) => { const job = jobs.find(j => j.id === id); if(job) setCheckInJob(job); }} onUnscheduleSegment={workshopActions.handleUnscheduleSegment} {...commonProps} />;
             case 'workflow': return <WorkflowView jobs={jobs} vehicles={vehicles} customers={customers} engineers={engineers} currentUser={currentUser} onGenerateInvoice={handleGenerateInvoice} {...commonProps} />;
             case 'jobs': return <JobsView onEditJob={(id) => { setSelectedJobId(id); setIsEditJobModalOpen(true); }} onSmartCreateClick={() => { setSmartCreateMode('job'); setIsSmartCreateOpen(true); }} />;
-            case 'estimates': return <EstimatesView onOpenEstimateModal={(est) => setEstimateFormModal({isOpen: true, estimate: est})} onViewEstimate={(est) => setEstimateViewModal({isOpen: true, estimate: est})} onSmartCreateClick={() => { setSmartCreateMode('estimate'); setIsSmartCreateOpen(true); }} />;
+            case 'estimates': return <EstimatesView onOpenEstimateModal={(est) => setEstimateFormModal({isOpen: true, estimate: est})} onViewEstimate={(est) => setEstimateViewModal({isOpen: true, estimate: est})} onSmartCreateClick={() => { setSmartCreateMode('estimate'); setIsSmartCreateOpen(true); }} onOpenServicePackageModal={(pkg) => setServicePackageFormModal({ isOpen: true, servicePackage: pkg })} />;
             case 'invoices': return <InvoicesView onViewInvoice={(inv) => setViewInvoiceModal({isOpen: true, invoice: inv})} onEditInvoice={(inv) => setInvoiceFormModal({isOpen: true, invoice: inv})} onOpenExportModal={(type, items) => setExportModal({isOpen: true, type, items})} onCreateAdhocInvoice={() => setInvoiceFormModal({isOpen: true, invoice: { createdByUserId: currentUser.id } as any})} />;
             case 'purchaseOrders': return <PurchaseOrdersView onOpenPurchaseOrderModal={(po) => setPoModal({isOpen: true, po})} onViewPurchaseOrder={(po) => setViewPoModal({isOpen: true, po})} onDeletePurchaseOrder={(id) => handleDeleteItem(setPurchaseOrders, id)} onExport={() => {}} onOpenBatchAddModal={() => setBatchPoModalOpen(true)} />;
             case 'sales': return <SalesView entity={businessEntities.find(e => e.id === selectedEntityId)!} onManageSaleVehicle={(sv) => setSorContractModal({isOpen: false, saleVehicle: null}) /* Placeholder for future better manage modal */ } onAddSaleVehicle={() => {}} onGenerateReport={() => setSalesReportModal(true)} onAddProspect={() => setProspectModal({isOpen: true, prospect: null})} onEditProspect={(p) => setProspectModal({isOpen: true, prospect: p})} onViewCustomer={() => {}} />;
@@ -269,7 +273,8 @@ const App = () => {
         rentalBookingModal, rentalConditionModal, rentalAgreementModal, rentalReturnReportModal,
         sorContractModal, ownerStatementModal, internalStatementModal, salesReportModal,
         prospectModal, estimateFormModal, estimateViewModal, scheduleJobFromEstimateModal,
-        scheduleEmailModal, inquiryModal, isAssistantOpen, assistantContextJobId
+        scheduleEmailModal, inquiryModal, isAssistantOpen, assistantContextJobId,
+        servicePackageFormModal
     };
 
     const setters = {
@@ -279,7 +284,7 @@ const App = () => {
         setRentalAgreementModal, setRentalReturnReportModal, setSorContractModal, setOwnerStatementModal,
         setInternalStatementModal, setSalesReportModal, setProspectModal, setEstimateFormModal,
         setEstimateViewModal, setScheduleJobFromEstimateModal, setScheduleEmailModal, setInquiryModal,
-        setIsAssistantOpen
+        setIsAssistantOpen, setServicePackageFormModal
     };
 
     // Actions passed to AppModals to handle saves
@@ -297,6 +302,7 @@ const App = () => {
     };
 
     return (
+        <ToastProvider>
         <MainLayout onOpenManagement={() => setIsManagementOpen(true)}>
    
             {renderView()}
@@ -319,6 +325,7 @@ const App = () => {
                 onManualBackup={handleManualBackup}
             />
         </MainLayout>
+        </ToastProvider>
     );
 };
 

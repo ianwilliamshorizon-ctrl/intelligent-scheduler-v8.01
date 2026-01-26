@@ -2,13 +2,14 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../../core/state/DataContext';
 import { useApp } from '../../core/state/AppContext';
-import { Estimate, EstimateLineItem, Vehicle } from '../../types';
+import { Estimate, EstimateLineItem, ServicePackage, Vehicle } from '../../types';
 import { Plus, Eye, Edit, Trash2, Search, PlusCircle, Wand2, ChevronDown, ChevronUp, Loader2, Printer } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatUtils';
 import { generateServicePackageName } from '../../core/services/geminiService';
 import { getRelativeDate } from '../../core/utils/dateUtils';
 import PrintableEstimateList from '../../components/PrintableEstimateList';
 import { usePrint } from '../../core/hooks/usePrint';
+import { useToast } from '../../hooks/useToast';
 
 const StatusFilter = ({ statuses, selectedStatuses, onToggle }: { statuses: readonly Estimate['status'][]; selectedStatuses: Estimate['status'][]; onToggle: (status: Estimate['status']) => void; }) => (
     <div className="flex flex-wrap gap-2 items-center">
@@ -29,10 +30,11 @@ const StatusFilter = ({ statuses, selectedStatuses, onToggle }: { statuses: read
     </div>
 );
 
-const EstimatesView = ({ onOpenEstimateModal, onViewEstimate, onSmartCreateClick }: { onOpenEstimateModal: (estimate: Partial<Estimate> | null) => void; onViewEstimate: (estimate: Estimate) => void; onSmartCreateClick: () => void; }) => {
+const EstimatesView = ({ onOpenEstimateModal, onViewEstimate, onSmartCreateClick, onOpenServicePackageModal }: { onOpenEstimateModal: (estimate: Partial<Estimate> | null) => void; onViewEstimate: (estimate: Estimate) => void; onSmartCreateClick: () => void; onOpenServicePackageModal: (pkg: Partial<ServicePackage>) => void; }) => {
     const { estimates, customers, vehicles, taxRates, setServicePackages, servicePackages, businessEntities } = useData();
     const { selectedEntityId, users } = useApp();
     const print = usePrint();
+    const { showToast } = useToast();
     
     const [filter, setFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState<Estimate['status'][]>([]);
@@ -93,7 +95,7 @@ const EstimatesView = ({ onOpenEstimateModal, onViewEstimate, onSmartCreateClick
     const handleCreatePackage = async (estimate: Estimate) => {
         const vehicle = vehicleMap.get(estimate.vehicleId);
         if (!vehicle) {
-            alert("Cannot create a package without an associated vehicle.");
+            showToast("Cannot create a package without an associated vehicle.", "error");
             return;
         }
 
@@ -102,8 +104,7 @@ const EstimatesView = ({ onOpenEstimateModal, onViewEstimate, onSmartCreateClick
             const { name, description } = await generateServicePackageName(estimate.lineItems, vehicle.make, vehicle.model);
             const totalNet = (estimate.lineItems || []).filter(item => !item.isPackageComponent).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
-            const newPackage: any = {
-                id: `pkg_${Date.now()}`,
+            const newPackage: Partial<ServicePackage> = {
                 entityId: estimate.entityId,
                 name,
                 description,
@@ -113,11 +114,10 @@ const EstimatesView = ({ onOpenEstimateModal, onViewEstimate, onSmartCreateClick
                 applicableModel: vehicle.model,
             };
             
-            setServicePackages(prev => [...prev, newPackage]);
-            alert(`Service Package "${name}" created successfully!`);
+            onOpenServicePackageModal(newPackage);
 
         } catch (error: any) {
-            alert(`AI failed to create package: ${error.message}`);
+            showToast(`AI failed to create package name: ${error.message}`, 'error');
         } finally {
             setIsCreatingPackage(false);
         }

@@ -1,5 +1,9 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { ServicePackage, EstimateLineItem, Part } from '../../types';
+import { getDb } from '../db';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import Fuse from 'fuse.js';
 
 const apiKey = import.meta.env.VITE_API_KEY;
 
@@ -8,6 +12,25 @@ if (!apiKey) {
 }
 
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+export const saveNewPackageToDb = async (packageData: Partial<ServicePackage>) => {
+    const db = getDb();
+    try {
+        const docRef = await addDoc(collection(db, 'brooks_servicePackages'), {
+            ...packageData,
+            active: true,
+            created: serverTimestamp(),
+            lastUpdated: serverTimestamp(),
+            source: 'AI-Generated'
+        });
+        
+        console.log("✅ Package saved to list:", docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error("❌ Firestore Save Error:", e);
+        throw e;
+    }
+};
 
 export const createAssistantChat = () => {
     if (!ai) {
@@ -47,28 +70,15 @@ export const parseJobRequest = async (prompt: string, servicePackages: ServicePa
           type: Type.STRING,
           description: 'A concise description of the job. If service packages are identified, combine their names (e.g., "MOT & Minor Service").',
         },
-        estimatedHours: {
-          type: Type.NUMBER,
-          description: 'The estimated hours. Omit if service packages are found. Otherwise, this is required.',
-        },
-        scheduledDate: {
-          type: Type.STRING,
-          description: 'The scheduled start date in YYYY-MM-DD format.',
-        },
-        notes: {
-          type: Type.STRING,
-          description: 'Any additional notes or instructions from the user request.'
-        },
         servicePackageNames: {
           type: Type.ARRAY,
-          description: 'A list of service package names if any are mentioned. Must be an exact match from the provided list.',
-          items: {
-            type: Type.STRING,
-            enum: (servicePackages || []).map(p => p.name),
-          }
+          description: 'A list of service package names. If a new service is needed, provide a concise name for it.',
+          items: { 
+            type: Type.STRING
+          },
         }
       },
-      required: ['vehicleRegistration', 'description', 'scheduledDate'],
+      required: ['vehicleRegistration', 'description'],
     };
     
     const knownPackages = (servicePackages || []).map(p => `- ${p.name}: ${p.description || p.name}`).join('\n');
@@ -76,34 +86,29 @@ export const parseJobRequest = async (prompt: string, servicePackages: ServicePa
     let vehicleContextPrompt = '';
     if (vehicleInfo) {
         vehicleContextPrompt = `
-      IMPORTANT VEHICLE CONTEXT: The request is for a ${vehicleInfo.make} ${vehicleInfo.model}.
-      Use this information to select the most appropriate service package. For example, if the user says "major service" and the list contains "Porsche 911 Major Service" and "Porsche Cayman Major Service", you MUST select the one that matches the vehicle model (e.g., "Porsche 911 Major Service" for a 911).
+      VEHICLE CONTEXT: The request is for a ${vehicleInfo.make} ${vehicleInfo.model}.
+      Use this to select the correct package. For example, if the list has "Porsche 911 Major Service" and the user asks for "major service" for a 911, you must select "Porsche 911 Major Service".
       `;
     }
 
     const fullPrompt = `
-      Parse the following user request to create a garage job card.
-      The context date for this request is ${contextDate}. Use this to resolve relative dates like "tomorrow" or "next Monday". The final date MUST be in YYYY-MM-DD format. If the user does not specify a date, assume the job is for the context date.
+      You are a garage service advisor. Parse the following request to identify the vehicle and any requested service packages.
+
+      Context Date: ${contextDate}
       ${vehicleContextPrompt}
 
-      Here is a list of KNOWN SERVICE PACKAGES. If the user's request matches one or more of these, you MUST return their exact names in the 'servicePackageNames' array.
-      Known Service Packages:
+      Available Service Packages:
       ${knownPackages}
       
       User Request: "${prompt}"
 
-      Extraction Rules:
-      1. Always extract the vehicle registration as mentioned by the user. It is crucial.
-      2. If one or more service packages are identified (using the vehicle context if provided):
-         - Return their names in the 'servicePackageNames' array.
-         - Use a combined name (e.g., "MOT Test & Minor Service") as the main 'description'.
-         - Any other details from the user request should be put in the 'notes' field.
-         - You can omit 'estimatedHours'.
-      3. If no service package is mentioned:
-         - Create a concise 'description' from the user's request.
-         - You MUST provide a reasonable estimate for 'estimatedHours'.
+      **Instructions**:
+      1.  **Find Vehicle Registration**: Extract the vehicle registration plate.
+      2.  **Match Service Packages**: Review the user request. If it mentions a service that closely matches one of the "Available Service Packages", return the package's full name in the 'servicePackageNames' array.
+          - The match should be intelligent. "major service" should match "Porsche 911 Major Service" if the vehicle is a 911.
+      3.  **Create Description**: The 'description' should be a summary of the job.
 
-      Format the output according to the provided JSON schema.
+      Return a JSON object conforming to the schema.
     `;
 
     try {
@@ -116,11 +121,24 @@ export const parseJobRequest = async (prompt: string, servicePackages: ServicePa
             },
         });
         
-        const jsonText = result.text;
-        const parsedData = JSON.parse(jsonText);
-        if (!parsedData.servicePackageNames) {
-          parsedData.servicePackageNames = [];
+        const parsedData = JSON.parse(result.text);
+
+        // If AI identified packages, save them if they are new
+        if (parsedData.servicePackageNames && parsedData.servicePackageNames.length > 0) {
+            for (const name of parsedData.servicePackageNames) {
+                // Check if we already have this exact name to avoid duplicates
+                const exists = servicePackages.some(p => p.name.toLowerCase() === name.toLowerCase());
+                
+                if (!exists) {
+                    await saveNewPackageToDb({
+                        name: name,
+                        description: parsedData.description,
+                        // You can add default values here
+                    });
+                }
+            }
         }
+
         return parsedData;
 
     } catch (error: any) {
@@ -156,15 +174,15 @@ export const parseSearchQuery = async (query: string): Promise<{ searchTerm: str
     };
 
     const fullPrompt = `
-      Analyze the following search query from a garage management system's universal search bar.
-      Your task is to extract the core search term and classify the user's intent.
+      Analyze the following search query from a garage management system\'s universal search bar.
+      Your task is to extract the core search term and classify the user\'s intent.
 
       Query: "${query}"
 
       Classification Rules:
-      1.  If the query contains a person's name (e.g., "John Smith"), a phone number (e.g., "07700900123"), or an email address, the searchType is 'customer'. The searchTerm should be the name, number, or email.
+      1.  If the query contains a person\'s name (e.g., "John Smith"), a phone number (e.g., "07700900123"), or an email address, the searchType is 'customer'. The searchTerm should be the name, number, or email.
       2.  If the query contains what looks like a vehicle registration plate (e.g., "REG123", "WP19 WML"), a vehicle make (e.g., "Porsche"), or a model (e.g., "911 GT3"), the searchType is 'vehicle'. The searchTerm should be the registration, make, or model. For registrations, remove any spaces.
-      3.  If the query is ambiguous (e.g., "Smith's car", "the transit"), classify the searchType as 'unknown' and extract the most likely identifier as the searchTerm.
+      3.  If the query is ambiguous (e.g., "Smith\'s car", "the transit"), classify the searchType as 'unknown' and extract the most likely identifier as the searchTerm.
 
       Format the output according to the provided JSON schema.
     `;
@@ -198,43 +216,20 @@ export const generateServicePackageName = async (
         throw new Error("AI service is unavailable.");
     }
 
-    const responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-            name: {
-                type: Type.STRING,
-                description: "A concise, customer-facing name for the service package. It MUST include the vehicle make and model. Examples: 'Porsche 911 Major Service', 'Ford Transit Annual Check-up'.",
-            },
-            description: {
-                type: Type.STRING,
-                description: 'A brief, one-sentence summary of the work included in this package.',
-            },
-        },
-        required: ['name', 'description'],
-    };
-
     const itemsDescription = (lineItems || [])
         .map(item => `- ${item.description} (Qty: ${item.quantity})`)
         .join('\n');
 
     const fullPrompt = `
-      Analyze the following vehicle information and list of work items from a garage estimate.
-      Your task is to generate a suitable name and a short description for a new, reusable service package based on these items.
-
-      Vehicle: ${vehicleMake} ${vehicleModel}
-
-      Work Items:
+      Generate a concise, customer-facing name and a short description for a service package.
+      The vehicle is a ${vehicleMake} ${vehicleModel}.
+      The work items are:
       ${itemsDescription}
 
-      Rules for generating the name:
-      1. The name MUST be concise and marketable.
-      2. The name MUST include the vehicle make and model to specify its applicability.
-      3. The name should summarize the core service (e.g., "Minor Service", "Brake Replacement", "MOT & Service").
+      The name should be marketable and specific to the vehicle.
+      The description should be a single sentence summarizing the work.
 
-      Rules for generating the description:
-      1. The description should be a single, clear sentence summarizing the key components of the service.
-
-      Format the output according to the provided JSON schema.
+      Return a JSON object with two keys: "name" and "description".
     `;
 
     try {
@@ -243,7 +238,6 @@ export const generateServicePackageName = async (
             contents: fullPrompt,
             config: {
                 responseMimeType: 'application/json',
-                responseSchema: responseSchema,
             },
         });
         
@@ -256,6 +250,52 @@ export const generateServicePackageName = async (
     }
 };
 
+export const generateAndSaveServicePackage = async (
+    lineItems: EstimateLineItem[],
+    vehicleMake: string,
+    vehicleModel: string,
+    entityId: string,
+    totalPrice: number
+) => {
+    const db = getDb();
+    const aiResult = await generateServicePackageName(lineItems, vehicleMake, vehicleModel);
+
+    try {
+        const docRef = await addDoc(collection(db, 'brooks_servicePackages'), {
+            entityId: entityId,
+            name: aiResult.name,
+            description: aiResult.description,
+            applicableMake: vehicleMake,
+            applicableModel: vehicleModel,
+            costItems: lineItems,
+            totalPrice: totalPrice,
+            created: serverTimestamp(),
+            lastUpdated: serverTimestamp(),
+        });
+
+        console.log("✅ New AI package saved to options list with ID:", docRef.id);
+        
+        const newPackage: ServicePackage = {
+            id: docRef.id,
+            entityId: entityId,
+            name: aiResult.name,
+            description: aiResult.description,
+            applicableMake: vehicleMake,
+            applicableModel: vehicleModel,
+            costItems: lineItems,
+            totalPrice: totalPrice,
+            created: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+        };
+        return newPackage;
+
+    } catch (dbError) {
+        console.error("❌ Failed to save AI package to list:", dbError);
+        throw new Error("Database error: Failed to save the new service package.");
+    }
+};
+
+
 export const generateEstimateFromDescription = async (
     description: string,
     vehicleInfo: { make: string; model: string; },
@@ -267,74 +307,29 @@ export const generateEstimateFromDescription = async (
         throw new Error("AI service is unavailable.");
     }
 
-    const lineItemSchema = {
-      type: Type.OBJECT,
-      properties: {
-          description: { type: Type.STRING },
-          quantity: { type: Type.NUMBER },
-          isLabor: { type: Type.BOOLEAN },
-          partNumber: { type: Type.STRING },
-          servicePackageName: { type: Type.STRING }
-      },
-      required: ['description', 'quantity', 'isLabor'],
-    };
-
-    const { servicePackageName, ...optionalProperties } = lineItemSchema.properties;
-
-    const responseSchema = {
-        type: Type.OBJECT,
-        properties: {
-            mainItems: {
-                type: Type.ARRAY,
-                description: "A list of essential labor and parts for the job. If a service package is identified, it should be the only item in this list.",
-                items: lineItemSchema
-            },
-            optionalExtras: {
-                type: Type.ARRAY,
-                description: "A list of suggested optional add-ons or upsells that are relevant but not essential. Do not include items already in mainItems.",
-                items: {
-                    ...lineItemSchema,
-                    properties: optionalProperties,
-                }
-            },
-            suggestedNotes: {
-                type: Type.STRING,
-                description: "A few bullet points of relevant notes for the technician or customer. E.g., '- Advise customer on tyre wear.' Format as a string with newlines."
-            }
-        },
-        required: ['mainItems']
-    };
-
     const partsList = (availableParts || []).map(p => `- ${p.partNumber}: ${p.description}`).join('\n');
     const packagesList = (availablePackages || []).map(p => `- ${p.name}: ${p.description || p.name}`).join('\n');
 
     const fullPrompt = `
-      You are an expert garage service advisor. Your task is to analyze a customer's request and break it down into an estimate with three parts: 1. Essential line items, 2. Suggested optional extras, and 3. Important notes.
+      You are an expert garage service advisor. Your task is to analyze a customer\'s request and create a list of estimate items.
+      Return a JSON object with three keys: 'mainItems', 'optionalExtras', and 'suggestedNotes'.
 
       Vehicle: ${vehicleInfo.make} ${vehicleInfo.model}
-      Standard hourly labor rate: £${laborRate}
+      Hourly labor rate: £${laborRate}
 
       Available Service Packages:
       ${packagesList}
 
-      Available Parts (for reference):
-      ${partsList}
-
       Customer Request: "${description}"
 
-      Rules:
-      1.  **Prioritize Service Packages**: If the request clearly matches one of the "Available Service Packages", you MUST return it as the ONLY item in the 'mainItems' array. The 'optionalExtras' and 'suggestedNotes' can still be populated.
-          - The package item should have 'description' and 'servicePackageName' set to the exact package name, 'isLabor: false', and 'quantity: 1'.
-      2.  **Breakdown for Custom Jobs**: If no service package matches, break the request down into individual labor and parts line items in the 'mainItems' array.
-          - For labor, create an item with 'isLabor: true' and estimate the hours for 'quantity'.
-          - For parts, create an item with 'isLabor: false'. If you can identify a specific part from the "Available Parts" list, include its 'partNumber'.
-      3.  **Generate Optional Extras**: In the 'optionalExtras' array, suggest 1-3 relevant upsells or related maintenance items. For example, if the main job is about brakes, suggest brake fluid. If it's a major service, suggest wheel alignment. These should be items not already in 'mainItems'.
-      4.  **Generate Notes**: In 'suggestedNotes', provide a short, bulleted list of important reminders for the technician or advice for the customer. For example:
-          - "- Advise customer on remaining tyre life."
-          - "- Road test vehicle before and after work."
-          - "- Check for any fault codes in ECU."
-      5.  **Be Realistic**: Provide reasonable estimates for labor hours and part quantities.
-      6.  **Format**: The final output MUST be a JSON object that conforms to the provided schema.
+      **Instructions**:
+      1.  **Check for Service Packages**: If the request mentions a service from the "Available Service Packages" list, add it to the 'mainItems' array.
+          - The item should have 'servicePackageName' set to the package name, 'quantity': 1, and 'isLabor': false.
+      2.  **Add Custom Items**: If the request mentions work not in a package, add it to 'mainItems' as labor or parts.
+          - Labor items need 'isLabor: true' and a 'quantity' representing estimated hours.
+          - Part items need 'isLabor: false' and a part number if known.
+      3.  **Suggest Extras**: Add 1-2 relevant upsells to the 'optionalExtras' array (e.g., brake fluid for a brake job).
+      4.  **Add Notes**: Add technical or customer-facing notes to the 'suggestedNotes' string.
     `;
 
     try {
@@ -343,7 +338,6 @@ export const generateEstimateFromDescription = async (
             contents: fullPrompt,
             config: {
                 responseMimeType: 'application/json',
-                responseSchema: responseSchema,
             },
         });
         
@@ -396,10 +390,10 @@ export const parseInquiryMessage = async (message: string): Promise<{ fromName: 
       Message: "${message}"
 
       Rules for Extraction:
-      1.  **fromName**: Extract the customer's full name. If only a first name is given, use that.
+      1.  **fromName**: Extract the customer\'s full name. If only a first name is given, use that.
       2.  **fromContact**: Extract the most prominent contact detail. This will be either a phone number or an email address. If both are present, prefer the phone number.
-      3.  **vehicleRegistration**: Find any vehicle registration plate mentioned. It's crucial to normalize it to be uppercase and without any spaces.
-      4.  **summary**: Provide a concise, one-sentence summary of the customer's request.
+      3.  **vehicleRegistration**: Find any vehicle registration plate mentioned. It\'s crucial to normalize it to be uppercase and without any spaces.
+      4.  **summary**: Provide a concise, one-sentence summary of the customer\'s request.
 
       Format the output according to the provided JSON schema.
     `;
@@ -450,7 +444,7 @@ export const parseServicePackageFromContent = async (content: string): Promise<P
                         isLabor: { type: Type.BOOLEAN, description: "True if it's a labor item, false if it's a part." },
                         unitCost: { type: Type.NUMBER, description: "Estimated unit cost price (optional, default to 0)." },
                         unitPrice: { type: Type.NUMBER, description: "Estimated unit sale price (optional, default to 0)." },
-                        partNumber: { type: Type.STRING, description: "Part number if available." }
+                        partNumber: { type: String, description: "Part number if available." }
                     },
                     required: ['description', 'quantity', 'isLabor']
                 }

@@ -4,9 +4,10 @@ import { initializeApp } from 'firebase/app';
 import { 
     getFirestore, doc, getDoc, setDoc, collection, 
     onSnapshot, Firestore, connectFirestoreEmulator, runTransaction,
-    query, deleteDoc as firestoreDeleteDoc
+    query, deleteDoc as firestoreDeleteDoc, addDoc, updateDoc, serverTimestamp
 } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { ServicePackage } from '../types';
 
 // --- 1. Environment & Config ---
 const getEnv = () => (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : process.env;
@@ -19,15 +20,11 @@ export const isDev = () => {
     return env.DEV === true || env.VITE_USER_NODE_ENV === 'development';
 };
 
-/**
- * Returns whether the app is running in Production or Development mode.
- * Required by AppContext.tsx
- */
 export const getAppEnvironment = (): 'Production' | 'Development' => {
     return isDev() ? 'Development' : 'Production';
 };
 
-// --- 2. Data Sanitization (Prevents Firebase "undefined" errors) ---
+// --- 2. Data Sanitization ---
 const sanitizeData = (obj: any): any => {
   if (Array.isArray(obj)) {
     return obj.map(v => sanitizeData(v));
@@ -48,7 +45,6 @@ let isInitialized = false;
 
 const initialize = () => {
     if (isInitialized) return;
-
     const firebaseConfig = {
         apiKey: getEnv().VITE_FIREBASE_API_KEY,
         authDomain: getEnv().VITE_FIREBASE_AUTH_DOMAIN,
@@ -57,16 +53,13 @@ const initialize = () => {
         messagingSenderId: getEnv().VITE_FIREBASE_MESSAGING_SENDER_ID,
         appId: getEnv().VITE_FIREBASE_APP_ID,
     };
-
     if (!firebaseConfig.projectId) {
         throw new Error("Firebase Project ID is missing. Check your .env file.");
     }
-
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
     isInitialized = true;
-
     if (isDev()) {
         connectFirestoreEmulator(db, 'localhost', 8080);
         connectAuthEmulator(auth, 'http://localhost:9099');
@@ -76,19 +69,11 @@ const initialize = () => {
     }
 };
 
-/**
- * Returns the Firestore instance.
- * Required by seeding.ts
- */
 export const getDb = (): Firestore => {
     if (!isInitialized) initialize();
     return db;
 };
 
-/**
- * Returns whether the app is using the local emulator or live firestore.
- * Required by AppContext.tsx
- */
 export const getStorageType = () => {
     if (!isInitialized) initialize();
     return isDev() ? 'emulator' : 'firestore';
@@ -100,12 +85,8 @@ const getAuthInstance = (): any => {
 }
 export { getAuthInstance as auth };
 
-
 // --- 4. Main Operations ---
 
-/**
- * Listens to a collection and executes a callback on every change.
- */
 export const subscribeToCollection = <T>(
     collectionName: string, 
     callback: (data: T[]) => void
@@ -160,7 +141,6 @@ export const generateSequenceId = async (prefix: string, entityShortCode: string
 export const setItem = async (key: string, value: any) => {
     const firestore = getDb();
     const cleanValue = sanitizeData(value);
-
     if (Array.isArray(cleanValue)) {
         const batchPromises = cleanValue.map(item => {
             if (!item.id) return Promise.resolve();
@@ -186,4 +166,19 @@ export const getItem = async <T>(key: string): Promise<T | null> => {
 
 export const clearStore = async () => {
     console.warn("clearStore is not fully implemented for Firestore adapter.");
+};
+
+export const saveServicePackage = async (pkg: ServicePackage): Promise<ServicePackage> => {
+    const firestore = getDb();
+    const cleanPkg = sanitizeData(pkg);
+
+    if (cleanPkg.id) {
+        const docRef = doc(firestore, 'brooks_servicePackages', cleanPkg.id);
+        await updateDoc(docRef, { ...cleanPkg, lastUpdated: serverTimestamp() });
+        return cleanPkg;
+    } else {
+        const collectionRef = collection(firestore, 'brooks_servicePackages');
+        const newDocRef = await addDoc(collectionRef, { ...cleanPkg, created: serverTimestamp(), source: 'Manual-Entry' });
+        return { ...cleanPkg, id: newDocRef.id };
+    }
 };

@@ -8,23 +8,21 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
+    hmr: {
+      protocol: 'wss',
+      host: '3000-firebase-intelligent-v801-1769110189607.cluster-ikslh4rdsnbqsvu5nw3v4dqjj2.cloudworkstations.dev',
+    },
   },
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(__dirname, './src'),
+      'core': path.resolve(__dirname, './core'),
     }
   },
+  envPrefix: 'VITE_',
   build: {
-    terserOptions: {
-      compress: {
-        // Keep console logs in the production build
-        drop_console: false,
-      },
-    },
-  },
-  // By removing the `define` property, we allow Vite to handle 
-  // environment variables in the standard, secure way. Vite will:
-  // 1. Load `.env.production` during `build` and `.env.development` during `dev`.
-  // 2. Expose only the variables prefixed with `VITE_` to the client.
+    outDir: 'dist',
+    sourcemap: true,
+  }
 })
