@@ -44,7 +44,3 @@ export const calculateJobStatus = (segments: JobSegment[]): Job['status'] => {
     // 6. Otherwise, all segments must be Unallocated.
     return 'Unallocated';
 };
-
-export const getJobById = (jobId: string, jobs: Job[]): Job | undefined => {
-    return jobs.find(job => job.id === jobId);
-};

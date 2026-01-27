@@ -1,60 +1,46 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { subscribeToCollection, getItem, setItem } from '../db'; // Ensure setItem/saveDocument is imported
 
-export const usePersistentState = <T,>(
-  storageKey: string, 
-  getInitialValue: () => T
-): [T, React.Dispatch<React.SetStateAction<T>>] => {
+import React, { useState, useEffect, useRef } from 'react';
+import { subscribeToCollection, getItem } from '../db';
+
+export const usePersistentState = <T,>(storageKey: string, getInitialValue: () => T): [T, React.Dispatch<React.SetStateAction<T>>] => {
   const [state, setState] = useState<T>(getInitialValue());
   const [isHydrated, setIsHydrated] = useState(false);
-  
-  // Ref to prevent the listener from triggering a write-back loop
-  const isInternalUpdate = useRef(false);
 
-  // 1. LISTENING LOGIC (The "Pull")
   useEffect(() => {
     let unsubscribe = () => {};
+
+    // Determine if this is a Collection (Array) or a Setting (Object/Primitive)
+    // By convention in this app, keys starting with 'brooks_' that hold arrays are collections.
     const initialVal = getInitialValue();
     const isCollection = Array.isArray(initialVal);
 
     if (isCollection) {
-      unsubscribe = subscribeToCollection(storageKey, (data) => {
-        isInternalUpdate.current = true; // Mark this as a DB-driven update
-        setState(data as unknown as T);
-        setIsHydrated(true);
-        setTimeout(() => { isInternalUpdate.current = false; }, 100);
-      });
+        // Real-time Sync for Collections (Jobs, Customers, etc.)
+        unsubscribe = subscribeToCollection(storageKey, (data) => {
+            // Firestore returns the data. We update local state.
+            // This handles the "User B sees User A's changes" requirement.
+            setState(data as unknown as T);
+            setIsHydrated(true);
+        });
     } else {
-      getItem<T>(storageKey).then((data) => {
-        if (data) {
-          isInternalUpdate.current = true;
-          setState(data);
-        }
-        setIsHydrated(true);
-        setTimeout(() => { isInternalUpdate.current = false; }, 100);
-      });
+        // One-time fetch for Settings/Config (legacy behavior for non-collection items)
+        getItem<T>(storageKey).then((data) => {
+            if (data) setState(data);
+            setIsHydrated(true);
+        });
     }
 
-    return () => unsubscribe();
+    return () => {
+        unsubscribe();
+    };
   }, [storageKey]);
 
-  // 2. WRITING LOGIC (The "Push")
-  // We wrap setState to intercept the data and send it to Firestore
-  const setPersistentState: React.Dispatch<React.SetStateAction<T>> = useCallback((value) => {
-    setState((prevState) => {
-      const newState = value instanceof Function ? value(prevState) : value;
-      
-      // If the update came from the UI (not the DB listener), push to Cloud
-      if (!isInternalUpdate.current) {
-        // We use setItem (which calls your saveDocument logic)
-        setItem(storageKey, newState).catch(err => 
-          console.error(`Failed to sync ${storageKey} to cloud:`, err)
-        );
-      }
-      
-      return newState;
-    });
-  }, [storageKey]);
-
-  return [state, setPersistentState];
+  // We wrap setState to ensure we aren't just updating local state for Collections.
+  // NOTE: In a pure Firestore architecture, you typically don't set state directly for collections,
+  // you call db.saveDocument(). However, to keep compatibility with the huge existing codebase
+  // that passes `setJobs` around, we keep this. 
+  // IMPORTANT: The actual *writes* to DB must happen in the Action Hooks (useWorkshopActions), 
+  // not here in the setter, otherwise we get infinite loops or massive writes.
+  
+  return [state, setState];
 };

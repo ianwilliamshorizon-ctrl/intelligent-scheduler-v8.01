@@ -1,8 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import * as T from '../../types';
 import { usePersistentState } from './usePersistentState';
-// Removed saveServicePackage from here as it's missing or renamed
-import { setItem, subscribeToCollection } from '../db'; 
 import {
     getInitialJobs, getInitialVehicles, getInitialCustomers, getInitialEngineers,
     getInitialEstimates, getInitialInvoices, getInitialPurchaseOrders,
@@ -47,17 +45,15 @@ interface DataContextType {
     taxRates: T.TaxRate[]; setTaxRates: React.Dispatch<React.SetStateAction<T.TaxRate[]>>;
     roles: T.Role[]; setRoles: React.Dispatch<React.SetStateAction<T.Role[]>>;
     inspectionDiagrams: T.InspectionDiagram[]; setInspectionDiagrams: React.Dispatch<React.SetStateAction<T.InspectionDiagram[]>>;
-    forceSave: () => void;
-    // Updated signature: removed 'Promise' if it's no longer calling an async db function directly
-    handleSavePackage: (pkg: T.ServicePackage) => void; 
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    // --- Initialize Persistent State ---
     const [jobs, setJobs] = usePersistentState<T.Job[]>('brooks_jobs', getInitialJobs);
     const [vehicles, setVehicles] = usePersistentState<T.Vehicle[]>('brooks_vehicles', getInitialVehicles);
-    const [customers, setCustomers] = useState<T.Customer[]>(getInitialCustomers);
+    const [customers, setCustomers] = usePersistentState<T.Customer[]>('brooks_customers', getInitialCustomers);
     const [estimates, setEstimates] = usePersistentState<T.Estimate[]>('brooks_estimates', getInitialEstimates);
     const [invoices, setInvoices] = usePersistentState<T.Invoice[]>('brooks_invoices', getInitialInvoices);
     const [purchaseOrders, setPurchaseOrders] = usePersistentState<T.PurchaseOrder[]>('brooks_purchaseOrders', getInitialPurchaseOrders);
@@ -86,59 +82,7 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [roles, setRoles] = usePersistentState<T.Role[]>('brooks_roles', getInitialRoles);
     const [inspectionDiagrams, setInspectionDiagrams] = usePersistentState<T.InspectionDiagram[]>('brooks_inspectionDiagrams', getInitialInspectionDiagrams);
 
-    useEffect(() => {
-        const unsubscribe = subscribeToCollection<T.Customer>('brooks_customers', (updatedCustomers) => {
-            if (updatedCustomers) setCustomers(updatedCustomers);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    const forceSave = () => {
-        // Keeps local persistence while you build data
-        setItem('brooks_jobs', jobs);
-        setItem('brooks_vehicles', vehicles);
-        setItem('brooks_estimates', estimates);
-        setItem('brooks_invoices', invoices);
-        setItem('brooks_purchaseOrders', purchaseOrders);
-        setItem('brooks_purchases', purchases);
-        setItem('brooks_parts', parts);
-        setItem('brooks_servicePackages', servicePackages);
-        setItem('brooks_suppliers', suppliers);
-        setItem('brooks_engineers', engineers);
-        setItem('brooks_lifts', lifts);
-        setItem('brooks_rentalVehicles', rentalVehicles);
-        setItem('brooks_rentalBookings', rentalBookings);
-        setItem('brooks_saleVehicles', saleVehicles);
-        setItem('brooks_saleOverheadPackages', saleOverheadPackages);
-        setItem('brooks_prospects', prospects);
-        setItem('brooks_storageBookings', storageBookings);
-        setItem('brooks_storageLocations', storageLocations);
-        setItem('brooks_batteryChargers', batteryChargers);
-        setItem('brooks_nominalCodes', nominalCodes);
-        setItem('brooks_nominalCodeRules', nominalCodeRules);
-        setItem('brooks_absenceRequests', absenceRequests);
-        setItem('brooks_inquiries', inquiries);
-        setItem('brooks_reminders', reminders);
-        setItem('brooks_auditLog', auditLog);
-        setItem('brooks_businessEntities', businessEntities);
-        setItem('brooks_taxRates', taxRates);
-        setItem('brooks_roles', roles);
-        setItem('brooks_inspectionDiagrams', inspectionDiagrams);
-    };
-    
-    // FIX: Removed the broken 'saveServicePackage' call. 
-    // State is updated locally; use ManagementModal for cloud commitment.
-    const handleSavePackage = (pkg: T.ServicePackage) => {
-        setServicePackages(prev => {
-            const exists = prev.some(p => p.id === pkg.id);
-            if (exists) {
-                return prev.map(p => p.id === pkg.id ? pkg : p);
-            }
-            return [pkg, ...prev];
-        });
-    };
-
-    // Image Migration logic preserved
+    // Migration Logic for Images (One-time run to move data URLs from JSON to IndexedDB)
     useEffect(() => {
         const migrate = async () => {
             let vChanged = false;
@@ -157,22 +101,40 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
             if (vChanged) setVehicles(updatedVehicles);
         };
         migrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const value = useMemo(() => ({
-        jobs, setJobs, vehicles, setVehicles, customers, setCustomers,
-        estimates, setEstimates, invoices, setInvoices, purchaseOrders, setPurchaseOrders,
-        purchases, setPurchases, parts, setParts, servicePackages, setServicePackages,
-        suppliers, setSuppliers, engineers, setEngineers, lifts, setLifts,
-        rentalVehicles, setRentalVehicles, rentalBookings, setRentalBookings,
-        saleVehicles, setSaleVehicles, saleOverheadPackages, setSaleOverheadPackages,
-        prospects, setProspects, storageBookings, setStorageBookings,
-        storageLocations, setStorageLocations, batteryChargers, setBatteryChargers,
-        nominalCodes, setNominalCodes, nominalCodeRules, setNominalCodeRules,
-        absenceRequests, setAbsenceRequests, inquiries, setInquiries,
-        reminders, setReminders, auditLog, setAuditLog, businessEntities, setBusinessEntities,
-        taxRates, setTaxRates, roles, setRoles, inspectionDiagrams, setInspectionDiagrams,
-        forceSave, handleSavePackage,
+        jobs, setJobs,
+        vehicles, setVehicles,
+        customers, setCustomers,
+        estimates, setEstimates,
+        invoices, setInvoices,
+        purchaseOrders, setPurchaseOrders,
+        purchases, setPurchases,
+        parts, setParts,
+        servicePackages, setServicePackages,
+        suppliers, setSuppliers,
+        engineers, setEngineers,
+        lifts, setLifts,
+        rentalVehicles, setRentalVehicles,
+        rentalBookings, setRentalBookings,
+        saleVehicles, setSaleVehicles,
+        saleOverheadPackages, setSaleOverheadPackages,
+        prospects, setProspects,
+        storageBookings, setStorageBookings,
+        storageLocations, setStorageLocations,
+        batteryChargers, setBatteryChargers,
+        nominalCodes, setNominalCodes,
+        nominalCodeRules, setNominalCodeRules,
+        absenceRequests, setAbsenceRequests,
+        inquiries, setInquiries,
+        reminders, setReminders,
+        auditLog, setAuditLog,
+        businessEntities, setBusinessEntities,
+        taxRates, setTaxRates,
+        roles, setRoles,
+        inspectionDiagrams, setInspectionDiagrams
     }), [jobs, vehicles, customers, estimates, invoices, purchaseOrders, purchases, parts, servicePackages, suppliers, engineers, lifts, rentalVehicles, rentalBookings, saleVehicles, saleOverheadPackages, prospects, storageBookings, storageLocations, batteryChargers, nominalCodes, nominalCodeRules, absenceRequests, inquiries, reminders, auditLog, businessEntities, taxRates, roles, inspectionDiagrams]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
@@ -180,6 +142,8 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
 export const useData = (): DataContextType => {
     const context = useContext(DataContext);
-    if (!context) throw new Error('useData must be used within a DataContextProvider');
+    if (!context) {
+        throw new Error('useData must be used within a DataContextProvider');
+    }
     return context;
 };

@@ -1,4 +1,3 @@
-import './core/env'; // Load environment variables FIRST
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';

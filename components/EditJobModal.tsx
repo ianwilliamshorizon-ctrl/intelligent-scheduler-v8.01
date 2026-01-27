@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../core/state/DataContext';
 import { useApp } from '../core/state/AppContext';
 import { Job, Vehicle, Customer, Engineer, JobSegment, Lift, Estimate, TaxRate, EstimateLineItem, Part, ServicePackage, BusinessEntity, RentalBooking, User as AppUser, PurchaseOrder, Supplier, UnbillableTimeEvent, EngineerChangeEvent, PurchaseOrderLineItem, ChecklistSection, TyreCheckData, VehicleDamagePoint } from '../types';
-import { X, Save, Car, User, FileText, Wrench, Package, DollarSign, Edit, Plus, Trash2, KeyRound, MessageSquare, ChevronUp, ChevronDown, ListChecks, PlusCircle, ClipboardCheck, CarFront } from 'lucide-react';
+import { X, Save, Car, User, FileText, Wrench, Package, DollarSign, Edit, Plus, Trash2, KeyRound, MessageSquare, ChevronUp, ChevronDown, ListChecks, PlusCircle, ClipboardCheck, CarFront, Cloud, Loader2, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../utils/formatUtils';
 import { formatDate, addDays } from '../core/utils/dateUtils';
 import { generateEstimateNumber, generatePurchaseOrderId } from '../core/utils/numberGenerators';
@@ -12,6 +13,7 @@ import InspectionChecklist from './InspectionChecklist';
 import VehicleDamageReport from './VehicleDamageReport';
 import TyreCheck from './TyreCheck';
 import { initialChecklistData, initialTyreCheckData } from '../core/data/initialChecklistData';
+import { useDebouncedSave } from '../core/hooks/useDebouncedSave';
 
 const Section = ({ title, icon: Icon, children, defaultOpen = true }: { title: string, icon: React.ElementType, children?: React.ReactNode, defaultOpen?: boolean }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -100,9 +102,7 @@ const EditJobModal: React.FC<{
     rentalBookings: RentalBooking[];
     onOpenRentalBooking: (booking: Partial<RentalBooking> | null) => void;
     onOpenConditionReport: (booking: RentalBooking, mode: 'checkOut' | 'checkIn') => void;
-    onCreateSupplementaryEstimate?: (job: Job) => void;
-    onViewEstimate?: (estimate: Estimate) => void;
-}> = ({ isOpen, onClose, selectedJobId, onOpenPurchaseOrder, rentalBookings, onOpenRentalBooking, onOpenConditionReport, onCreateSupplementaryEstimate, onViewEstimate }) => {
+}> = ({ isOpen, onClose, selectedJobId, onOpenPurchaseOrder, rentalBookings, onOpenRentalBooking, onOpenConditionReport }) => {
     const {
         jobs, setJobs, vehicles, customers, engineers, estimates, setEstimates, purchaseOrders, setPurchaseOrders, suppliers, parts, servicePackages, taxRates, businessEntities
     } = useData();
@@ -117,6 +117,9 @@ const EditJobModal: React.FC<{
     const [expandedPoId, setExpandedPoId] = useState<string | null>(null);
     const [partSearchTerm, setPartSearchTerm] = useState('');
     const [activePartSearch, setActivePartSearch] = useState<string | null>(null);
+
+    // Auto-Sync Hook
+    const { isSaving, lastSaved } = useDebouncedSave('brooks_jobs', editableJob, 1000);
 
     const canViewPricing = useMemo(() => {
         if (!currentUser) return false;
@@ -641,9 +644,21 @@ const EditJobModal: React.FC<{
         <div className="fixed inset-0 bg-gray-900 bg-opacity-75 z-[60] flex justify-center items-center p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-[95vw] max-h-[90vh] flex flex-col">
                 <header className="flex-shrink-0 flex justify-between items-center p-4 border-b">
-                    <div>
-                        <h2 className="text-xl font-bold text-indigo-700">Edit Job #{job.id}</h2>
-                        <p className="text-sm text-gray-600">{job.description}</p>
+                    <div className="flex items-center gap-3">
+                        <div>
+                            <h2 className="text-xl font-bold text-indigo-700">Edit Job #{job.id}</h2>
+                            <p className="text-sm text-gray-600">{job.description}</p>
+                        </div>
+                        {isSaving && (
+                            <span className="flex items-center gap-1 text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-1 rounded-full">
+                                <Loader2 size={12} className="animate-spin"/> Saving...
+                            </span>
+                        )}
+                        {!isSaving && lastSaved && (
+                            <span className="flex items-center gap-1 text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full animate-fade-in">
+                                <CheckCircle size={12} /> Cloud Synced
+                            </span>
+                        )}
                     </div>
                     <button type="button" onClick={onClose}><X size={24} /></button>
                 </header>
@@ -725,7 +740,7 @@ const EditJobModal: React.FC<{
                 </main>
                 <footer className="flex-shrink-0 flex justify-end gap-2 p-4 border-t bg-gray-50">
                     <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 rounded-lg font-semibold">Cancel</button>
-                    <button type="button" onClick={handleSave} className="flex items-center gap-2 py-2 px-4 bg-indigo-600 text-white font-semibold rounded-lg disabled:opacity-50" disabled={isReadOnly}><Save size={14}/> Save</button>
+                    <button type="button" onClick={handleSave} className="flex items-center gap-2 py-2 px-4 bg-indigo-600 text-white font-semibold rounded-lg disabled:opacity-50" disabled={isReadOnly}><Save size={14}/> Save & Close</button>
                 </footer>
             </div>
         </div>

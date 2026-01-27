@@ -3,7 +3,7 @@ import React, { useCallback } from 'react';
 import { useData } from '../state/DataContext';
 import { useApp } from '../state/AppContext';
 import * as T from '../../types';
-import { generateSequenceId, saveDocument } from '../db'; // NEW Imports
+import { generateSequenceId, saveDocument } from '../db';
 import { formatDate, splitJobIntoSegments } from '../utils/dateUtils';
 import { calculateJobStatus } from '../utils/jobUtils';
 
@@ -14,24 +14,37 @@ export const useWorkshopActions = () => {
         jobs, estimates, purchaseOrders, inquiries, parts, businessEntities, vehicles
     } = data;
 
-    // Helper to determine collection name based on item type
-    // In strict Firestore, we would pass the collection name explicitly, but here we infer it
-    // to maintain the function signature if possible, or we just hardcode common ones.
+    // Helper to determine collection name based on item properties
     const getCollectionName = (item: any): string => {
+        // Core Workflow
         if ('estimateNumber' in item) return 'brooks_estimates';
         if ('vehicleRegistrationRef' in item) return 'brooks_purchaseOrders';
         if ('takenByUserId' in item) return 'brooks_inquiries';
         if ('segments' in item) return 'brooks_jobs';
+        
+        // Workshop Data
+        if ('costItems' in item) return 'brooks_servicePackages';
+        if ('stockQuantity' in item && 'partNumber' in item) return 'brooks_parts';
+        
+        // CRM
+        if ('forename' in item && 'surname' in item) return 'brooks_customers';
+        if ('registration' in item && 'make' in item) return 'brooks_vehicles';
+        
+        // Other
+        if ('contactName' in item) return 'brooks_suppliers';
+        
+        console.warn("Could not determine collection for item, saving to generic 'brooks_items'", item);
         return 'brooks_items';
     };
 
     // Refactored to Write to Cloud directly
     const handleSaveItem = async <Type extends { id: string }>(
         setter: React.Dispatch<React.SetStateAction<Type[]>>, // Kept for type compatibility but ignored
-        item: Type
+        item: Type,
+        collectionOverride?: string
     ) => {
         // Optimistic UI is handled by Firestore SDK + onSnapshot in usePersistentState
-        const col = getCollectionName(item);
+        const col = collectionOverride || getCollectionName(item);
         await saveDocument(col, item);
     };
 

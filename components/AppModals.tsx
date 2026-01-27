@@ -34,7 +34,6 @@ import CheckOutModal from './CheckOutModal';
 import EstimateFormModal from './EstimateFormModal';
 import EstimateViewModal from './EstimateViewModal';
 import SmartCreateJobModal from './SmartCreateJobModal';
-import ServicePackageFormModal from './ServicePackageFormModal';
 
 interface AppModalsProps {
     modals: {
@@ -68,7 +67,6 @@ interface AppModalsProps {
         inquiryModal: { isOpen: boolean; inquiry: Partial<T.Inquiry> | null };
         isAssistantOpen: boolean;
         assistantContextJobId: string | null;
-        servicePackageFormModal: { isOpen: boolean; servicePackage: Partial<T.ServicePackage> | null };
     };
     setters: any; // Using any for brevity in this extraction refactor, ideal to type strictly later
     actions: any;
@@ -81,7 +79,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
         nominalCodes, nominalCodeRules, rentalBookings, rentalVehicles, 
         saleVehicles, prospects, absenceRequests, setPurchaseOrders, setJobs, 
         setEstimates, setInvoices, setStorageBookings, setRentalBookings, 
-        setSaleVehicles, setProspects, setInquiries, setParts, setServicePackages,
+        setSaleVehicles, setProspects, setInquiries, setParts,
         saleOverheadPackages, inquiries
     } = useData();
     
@@ -120,10 +118,10 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                     isOpen={modals.isSmartCreateOpen}
                     onClose={() => setters.setIsSmartCreateOpen(false)}
                     creationMode={modals.smartCreateMode}
-                    onJobCreate={(jobData) => { handleSaveItem(setJobs, { ...jobData, createdByUserId: currentUser.id }); setters.setIsSmartCreateOpen(false); }}
-                    onVehicleAndJobCreate={(c, v, j) => { handleSaveItem(actions.setCustomers, c); handleSaveItem(actions.setVehicles, v); handleSaveItem(setJobs, { ...j, createdByUserId: currentUser.id }); setters.setIsSmartCreateOpen(false); }}
-                    onEstimateCreate={(estData) => { handleSaveItem(setEstimates, estData); setters.setIsSmartCreateOpen(false); }}
-                    onVehicleAndEstimateCreate={(c, v, e) => { handleSaveItem(actions.setCustomers, c); handleSaveItem(actions.setVehicles, v); handleSaveItem(setEstimates, e); setters.setIsSmartCreateOpen(false); }}
+                    onJobCreate={(jobData) => { handleSaveItem(setJobs, { ...jobData, createdByUserId: currentUser.id }, 'brooks_jobs'); setters.setIsSmartCreateOpen(false); }}
+                    onVehicleAndJobCreate={(c, v, j) => { handleSaveItem(actions.setCustomers, c, 'brooks_customers'); handleSaveItem(actions.setVehicles, v, 'brooks_vehicles'); handleSaveItem(setJobs, { ...j, createdByUserId: currentUser.id }, 'brooks_jobs'); setters.setIsSmartCreateOpen(false); }}
+                    onEstimateCreate={(estData) => { handleSaveItem(setEstimates, estData, 'brooks_estimates'); setters.setIsSmartCreateOpen(false); }}
+                    onVehicleAndEstimateCreate={(c, v, e) => { handleSaveItem(actions.setCustomers, c, 'brooks_customers'); handleSaveItem(actions.setVehicles, v, 'brooks_vehicles'); handleSaveItem(setEstimates, e, 'brooks_estimates'); setters.setIsSmartCreateOpen(false); }}
                     vehicles={vehicles}
                     customers={customers}
                     servicePackages={servicePackages}
@@ -186,7 +184,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                     onClose={() => setters.setInvoiceFormModal({isOpen: false, invoice: null})}
                     onSave={(inv) => {
                         const finalInvoice = { ...inv, createdByUserId: inv.createdByUserId || currentUser.id };
-                        handleSaveItem(setInvoices, finalInvoice);
+                        handleSaveItem(setInvoices, finalInvoice, 'brooks_invoices');
                         if (finalInvoice.jobId) {
                             setJobs(prev => prev.map(j => j.id === finalInvoice.jobId ? { ...j, invoiceId: finalInvoice.id, status: 'Invoiced' } : j));
                         }
@@ -195,9 +193,9 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                     }}
                     invoice={modals.invoiceFormModal.invoice}
                     customers={customers}
-                    onSaveCustomer={(c) => handleSaveItem(actions.setCustomers, c)}
+                    onSaveCustomer={(c) => handleSaveItem(actions.setCustomers, c, 'brooks_customers')}
                     vehicles={vehicles}
-                    onSaveVehicle={(v) => handleSaveItem(actions.setVehicles, v)}
+                    onSaveVehicle={(v) => handleSaveItem(actions.setVehicles, v, 'brooks_vehicles')}
                     businessEntities={businessEntities}
                     taxRates={taxRates}
                     servicePackages={servicePackages}
@@ -216,7 +214,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                     entity={businessEntities.find(e => e.id === modals.viewInvoiceModal.invoice!.entityId)}
                     job={jobs.find(j => j.id === modals.viewInvoiceModal.invoice!.jobId)}
                     taxRates={taxRates}
-                    onUpdateInvoice={(inv) => handleSaveItem(setInvoices, inv)}
+                    onUpdateInvoice={(inv) => handleSaveItem(setInvoices, inv, 'brooks_invoices')}
                     onInvoiceAction={(id) => actions.handleMarkJobAsAwaitingCollection(id)}
                 />
             )}
@@ -231,7 +229,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                     buyer={customers.find(c => c.id === modals.salesInvoiceModal.invoice!.customerId)}
                     entity={businessEntities.find(e => e.id === modals.salesInvoiceModal.invoice!.entityId)}
                     taxRates={taxRates}
-                    onUpdateInvoice={(inv) => handleSaveItem(setInvoices, inv)}
+                    onUpdateInvoice={(inv) => handleSaveItem(setInvoices, inv, 'brooks_invoices')}
                 />
             )}
 
@@ -239,7 +237,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                 <RentalBookingModal 
                     isOpen={modals.rentalBookingModal.isOpen}
                     onClose={() => setters.setRentalBookingModal({isOpen: false, booking: null})}
-                    onSave={(b) => handleSaveItem(setRentalBookings, b)}
+                    onSave={(b) => handleSaveItem(setRentalBookings, b, 'brooks_rentalBookings')}
                     booking={modals.rentalBookingModal.booking}
                     vehicles={vehicles}
                     rentalVehicles={rentalVehicles}
@@ -253,7 +251,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                 <RentalCheckInCheckOutModal 
                     isOpen={modals.rentalConditionModal.isOpen}
                     onClose={() => setters.setRentalConditionModal({isOpen: false, booking: null, mode: 'checkOut'})}
-                    onSave={(b) => handleSaveItem(setRentalBookings, b)}
+                    onSave={(b) => handleSaveItem(setRentalBookings, b, 'brooks_rentalBookings')}
                     booking={modals.rentalConditionModal.booking}
                     mode={modals.rentalConditionModal.mode}
                     rentalVehicle={rentalVehicles.find(rv => rv.id === modals.rentalConditionModal.booking!.rentalVehicleId)!}
@@ -331,13 +329,13 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                 <ProspectFormModal 
                     isOpen={modals.prospectModal.isOpen}
                     onClose={() => setters.setProspectModal({isOpen: false, prospect: null})}
-                    onSave={(p) => handleSaveItem(setProspects, p)}
+                    onSave={(p) => handleSaveItem(setProspects, p, 'brooks_prospects')}
                     prospect={modals.prospectModal.prospect}
                     entityId={selectedEntityId}
                     saleVehicles={saleVehicles}
                     vehicles={vehicles}
                     customers={customers}
-                    onSaveCustomer={(c) => handleSaveItem(actions.setCustomers, c)}
+                    onSaveCustomer={(c) => handleSaveItem(actions.setCustomers, c, 'brooks_customers')}
                 />
             )}
 
@@ -348,9 +346,9 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                     onSave={actions.handleSaveEstimate}
                     estimate={modals.estimateFormModal.estimate}
                     customers={customers}
-                    onSaveCustomer={(c) => handleSaveItem(actions.setCustomers, c)}
+                    onSaveCustomer={(c) => handleSaveItem(actions.setCustomers, c, 'brooks_customers')}
                     vehicles={vehicles}
-                    onSaveVehicle={(v) => handleSaveItem(actions.setVehicles, v)}
+                    onSaveVehicle={(v) => handleSaveItem(actions.setVehicles, v, 'brooks_vehicles')}
                     businessEntities={businessEntities}
                     taxRates={taxRates}
                     servicePackages={servicePackages}
@@ -374,7 +372,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                     onCustomerApprove={actions.handleCustomerApproveEstimate}
                     onDecline={actions.handleCustomerDeclineEstimate}
                     onEmailSuccess={(est) => {
-                        handleSaveItem(setEstimates, est);
+                        handleSaveItem(setEstimates, est, 'brooks_estimates');
                         actions.updateLinkedInquiryStatus(est.id, 'Sent');
                     }}
                     viewMode="internal"
@@ -382,19 +380,6 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                     users={users}
                     currentUser={currentUser}
                     onCreateInquiry={(est) => setters.setInquiryModal({isOpen: true, inquiry: { linkedEstimateId: est.id, linkedCustomerId: est.customerId, linkedVehicleId: est.vehicleId, message: `Question regarding Estimate #${est.estimateNumber}` }})}
-                />
-            )}
-
-            {modals.servicePackageFormModal.isOpen && (
-                <ServicePackageFormModal
-                    isOpen={modals.servicePackageFormModal.isOpen}
-                    onClose={() => setters.setServicePackageFormModal({ isOpen: false, servicePackage: null })}
-                    onSave={(pkg) => handleSaveItem(setServicePackages, pkg)}
-                    servicePackage={modals.servicePackageFormModal.servicePackage}
-                    taxRates={taxRates}
-                    entityId={selectedEntityId}
-                    businessEntities={businessEntities}
-                    parts={parts}
                 />
             )}
 
@@ -437,13 +422,13 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                         const jobToSave: T.Job = {
                             ...job,
                             partsStatus: newPOs.length > 0 ? 'Awaiting Order' : 'Not Required',
-                            purchaseOrderIds: newPOs.length > 0 ? newPurchaseOrderIds : undefined,
+                            purchaseOrderIds: newPurchaseOrderIds.length > 0 ? newPurchaseOrderIds : undefined,
                             createdByUserId: currentUser.id
                         };
 
-                        handleSaveItem(setJobs, jobToSave);
-                        handleSaveItem(setEstimates, est);
-                        newPOs.forEach(po => handleSaveItem(setPurchaseOrders, po));
+                        handleSaveItem(setJobs, jobToSave, 'brooks_jobs');
+                        handleSaveItem(setEstimates, est, 'brooks_estimates');
+                        newPOs.forEach(po => handleSaveItem(setPurchaseOrders, po, 'brooks_purchaseOrders'));
                         
                         const targetInquiryId = modals.scheduleJobFromEstimateModal.inquiryId || inquiries.find(i => i.linkedEstimateId === est.id)?.id;
                         if (targetInquiryId) {
@@ -451,10 +436,10 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                             if (inquiry) {
                                 if (newPOs.length === 0) {
                                     const closedInquiry: T.Inquiry = { ...inquiry, status: 'Closed', actionNotes: (inquiry.actionNotes || '') + '\n[System]: Job Scheduled (No Parts Required). Inquiry Closed.' };
-                                    handleSaveItem(setInquiries, closedInquiry);
+                                    handleSaveItem(setInquiries, closedInquiry, 'brooks_inquiries');
                                 } else {
                                     const updatedInquiry: T.Inquiry = { ...inquiry, status: 'In Progress', linkedPurchaseOrderIds: [...(inquiry.linkedPurchaseOrderIds || []), ...newPurchaseOrderIds], actionNotes: (inquiry.actionNotes || '') + `\n[System]: Job Scheduled. ${newPOs.length} Purchase Order(s) raised.` };
-                                    handleSaveItem(setInquiries, updatedInquiry);
+                                    handleSaveItem(setInquiries, updatedInquiry, 'brooks_inquiries');
                                 }
                             }
                         }
@@ -500,7 +485,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                 <InquiryFormModal 
                     isOpen={modals.inquiryModal.isOpen}
                     onClose={() => setters.setInquiryModal({isOpen: false, inquiry: null})}
-                    onSave={(inq) => handleSaveItem(setInquiries, inq)}
+                    onSave={(inq) => handleSaveItem(setInquiries, inq, 'brooks_inquiries')}
                     inquiry={modals.inquiryModal.inquiry}
                     users={users}
                     customers={customers}
@@ -527,7 +512,7 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                 <CheckInModal 
                     isOpen={!!modals.checkInJob}
                     onClose={() => setters.setCheckInJob(null)}
-                    onSave={(updatedJob) => handleSaveItem(setJobs, updatedJob)}
+                    onSave={(updatedJob) => handleSaveItem(setJobs, updatedJob, 'brooks_jobs')}
                     job={modals.checkInJob}
                 />
             )}
@@ -536,12 +521,12 @@ const AppModals: React.FC<AppModalsProps> = ({ modals, setters, actions }) => {
                 <CheckOutModal 
                     isOpen={!!modals.checkOutJob}
                     onClose={() => setters.setCheckOutJob(null)}
-                    onSave={(updatedJob) => handleSaveItem(setJobs, updatedJob)}
+                    onSave={(updatedJob) => handleSaveItem(setJobs, updatedJob, 'brooks_jobs')}
                     job={modals.checkOutJob}
                     invoice={invoices.find(i => i.jobId === modals.checkOutJob!.id) || null}
                     vehicle={vehicles.find(v => v.id === modals.checkOutJob!.vehicleId) || null}
                     customer={customers.find(c => c.id === modals.checkOutJob!.customerId) || null}
-                    onUpdateInvoice={(inv) => handleSaveItem(setInvoices, inv)}
+                    onUpdateInvoice={(inv) => handleSaveItem(setInvoices, inv, 'brooks_invoices')}
                 />
             )}
 

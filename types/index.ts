@@ -6,9 +6,9 @@ export type ViewType =
   | 'concierge' | 'communications' | 'absence' | 'inquiries';
 
 export interface BackupSchedule {
-  enabled: boolean;
-  times: string[];
-  frequency?: 'daily' | 'weekly' | 'monthly';
+    enabled: boolean;
+    times: string[];
+    frequency?: 'daily' | 'weekly' | 'monthly';
 }
 
 export type AppEnvironment = 'development' | 'production' | 'staging' | 'Development' | 'Production' | 'UAT' | 'uat';
@@ -57,6 +57,7 @@ export interface Vehicle {
     fleetNumber?: string;
     manufactureDate?: string;
     covid19MOTExemption?: boolean;
+    // FIX: Ensure url is mandatory for diagram logic
     images?: { id: string, url: string, isPrimaryDiagram?: boolean }[];
     vehicleImages?: string[];
 }
@@ -93,7 +94,7 @@ export interface JobSegment {
     id: string;
     description: string;
     estimatedHours: number;
-    assignedTo: string; // Engineer ID
+    assignedTo: string; 
     status: 'Pending' | 'In Progress' | 'Completed' | 'Paused' | 'Unallocated' | 'Engineer Complete';
     actualHours?: number;
     startTime?: string;
@@ -221,6 +222,8 @@ export interface ServicePackage {
     description?: string;
     totalPrice: number;
     costItems: EstimateLineItem[];
+    // FIX: Added laborItems if referenced in UI components
+    laborItems?: any[]; 
     taxCodeId: string;
     created: string;
     lastUpdated: string;
@@ -444,6 +447,47 @@ export interface SaleVehicle {
     purchasePrice: number;
     salePrice: number;
     status: 'For Sale' | 'Sold' | 'Under Offer';
+}
+
+// FIX: ADDED MISSING SALES TYPES
+export interface SaleUpsell {
+    id: string;
+    description: string;
+    cost: number;
+    price: number;
+}
+
+export interface SalePrepCost {
+    id: string;
+    description: string;
+    amount: number;
+    date: string;
+}
+
+export interface SaleOverhead {
+    id: string;
+    name: string;
+    amount: number;
+}
+
+export interface ChargingEvent {
+    id: string;
+    date: string;
+    kwh: number;
+    cost: number;
+}
+
+export interface SaleNonRecoverableCost {
+    id: string;
+    description: string;
+    amount: number;
+}
+
+export interface SaleVersion {
+    id: string;
+    timestamp: string;
+    changes: string;
+    userId: string;
 }
 
 export interface SaleOverheadPackage {

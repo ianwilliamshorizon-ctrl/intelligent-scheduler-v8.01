@@ -1,99 +1,69 @@
 import React from 'react';
-import { Estimate, Vehicle, TaxRate } from '../types';
-import { formatCurrency } from '../core/utils/formatUtils';
+import { Estimate, Customer, Vehicle, EstimateLineItem, TaxRate } from '../types';
+import { formatCurrency } from '../utils/formatUtils';
+import { getCustomerDisplayName } from '../core/utils/customerUtils';
 
 interface PrintableEstimateListProps {
     estimates: Estimate[];
-    customers: Map<string, string>;
+    customers: Map<string, Customer>;
     vehicles: Map<string, Vehicle>;
     taxRates: TaxRate[];
     title: string;
 }
 
-const PrintableEstimateList: React.FC<PrintableEstimateListProps> = ({ 
-    estimates, 
-    customers, 
-    vehicles, 
-    taxRates,
-    title 
-}) => {
-    // Helper to get tax rate value
-    const getTaxRate = (id?: string) => {
-        const rate = taxRates.find(t => t.id === id);
-        return rate ? rate.rate / 100 : 0;
-    };
+const PrintableEstimateList: React.FC<PrintableEstimateListProps> = ({ estimates, customers, vehicles, taxRates, title }) => {
+    const taxRatesMap = new Map<string, number>(taxRates.map(t => [t.id, t.rate]));
+    const standardTaxRateId = taxRates.find(t => t.code === 'T1')?.id;
 
-    // Calculate item total (Gross)
-    const calculateItemTotal = (item: any) => {
-        const net = item.quantity * item.unitPrice;
-        return net + (net * getTaxRate(item.taxCodeId));
+    const calculateTotal = (lineItems: EstimateLineItem[]) => {
+        return lineItems.reduce((sum, item) => {
+            if (item.isPackageComponent) return sum;
+            const net = (item.quantity || 0) * (item.unitPrice || 0);
+            const codeToUse = item.taxCodeId || standardTaxRateId;
+            const rate = (codeToUse ? taxRatesMap.get(codeToUse) : 0) || 0;
+            const vat = net * (rate / 100);
+            return sum + net + vat;
+        }, 0);
     };
 
     return (
-        <div className="p-8 bg-white text-black font-sans print:p-0">
-            {/* Print Header */}
-            <div className="flex justify-between items-end border-b-4 border-black pb-4 mb-8">
-                <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tighter">{title}</h1>
-                    <p className="text-sm text-gray-600 font-bold">Report Generated: {new Date().toLocaleDateString()}</p>
-                </div>
-                <div className="text-right">
-                    <p className="text-xl font-bold">Records: {estimates.length}</p>
-                </div>
-            </div>
-
-            {/* Estimates Table */}
-            <table className="w-full text-left border-collapse">
-                <thead>
-                    <tr className="border-b-2 border-black text-[10px] font-black uppercase tracking-widest">
-                        <th className="py-2 px-1">Ref No.</th>
-                        <th className="py-2 px-1">Customer</th>
-                        <th className="py-2 px-1">Vehicle</th>
-                        <th className="py-2 px-1 text-center">Date</th>
-                        <th className="py-2 px-1">Status</th>
-                        <th className="py-2 px-1 text-right">Total (Inc. Tax)</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                    {estimates.map((estimate) => {
-                        const total = estimate.lineItems.reduce((sum, item) => sum + calculateItemTotal(item), 0);
-                        const vehicle = vehicles.get(estimate.vehicleId);
-
-                        return (
-                            <tr key={estimate.id} className="text-xs break-inside-avoid">
-                                <td className="py-3 px-1 font-mono font-bold">{estimate.estimateNumber}</td>
-                                <td className="py-3 px-1 font-semibold">{customers.get(estimate.customerId) || 'Unknown'}</td>
-                                <td className="py-3 px-1">
-                                    <div className="font-bold">{vehicle?.registration || 'N/A'}</div>
-                                    <div className="text-[10px] text-gray-500 uppercase">{vehicle?.make} {vehicle?.model}</div>
-                                </td>
-                                <td className="py-3 px-1 text-center font-medium">{estimate.issueDate}</td>
-                                <td className="py-3 px-1">
-                                    <span className="text-[9px] font-black uppercase border border-black px-1.5 py-0.5 rounded">
-                                        {estimate.status}
-                                    </span>
-                                </td>
-                                <td className="py-3 px-1 text-right font-black">{formatCurrency(total)}</td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-
-            {/* Footer / Disclaimer */}
-            <div className="mt-12 pt-4 border-t border-gray-200 text-[9px] text-gray-400 italic">
-                <p>This document is an internal summary report. Individual detailed estimates should be consulted for full parts and labor breakdowns.</p>
-                <p>Confidential: For Authorized Personnel Only.</p>
-            </div>
-
-            {/* Print-specific CSS to ensure the layout remains clean */}
-            <style dangerouslySetInnerHTML={{ __html: `
-                @media print {
-                    @page { size: A4; margin: 20mm; }
-                    body { background: white; }
-                    .no-print { display: none !important; }
-                }
-            `}} />
+        <div className="bg-white font-sans text-sm text-gray-800 printable-page" style={{ width: '210mm', padding: '10mm', boxSizing: 'border-box' }}>
+            <header className="pb-4 border-b mb-6">
+                <h1 className="text-2xl font-bold text-gray-900">Estimates Report</h1>
+                <h2 className="text-lg text-gray-700">{title}</h2>
+                <p className="text-xs text-gray-500 mt-1">Generated on {new Date().toLocaleDateString()}</p>
+            </header>
+            <main>
+                <table className="w-full text-left text-xs" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                    <thead className="bg-gray-100">
+                        <tr>
+                            <th className="p-2 border border-gray-300">Number</th>
+                            <th className="p-2 border border-gray-300">Date</th>
+                            <th className="p-2 border border-gray-300">Customer</th>
+                            <th className="p-2 border border-gray-300">Vehicle</th>
+                            <th className="p-2 border border-gray-300">Status</th>
+                            <th className="p-2 border border-gray-300 text-right">Total (Gross)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {estimates.map(est => {
+                            const customer = customers.get(est.customerId);
+                            const vehicle = est.vehicleId ? vehicles.get(est.vehicleId) : null;
+                            const total = calculateTotal(est.lineItems);
+                            return (
+                                <tr key={est.id}>
+                                    <td className="p-2 border border-gray-300 font-mono">{est.estimateNumber}</td>
+                                    <td className="p-2 border border-gray-300">{est.issueDate}</td>
+                                    <td className="p-2 border border-gray-300">{getCustomerDisplayName(customer)}</td>
+                                    <td className="p-2 border border-gray-300">{vehicle?.registration || 'N/A'}</td>
+                                    <td className="p-2 border border-gray-300">{est.status}</td>
+                                    <td className="p-2 border border-gray-300 text-right">{formatCurrency(total)}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </main>
         </div>
     );
 };

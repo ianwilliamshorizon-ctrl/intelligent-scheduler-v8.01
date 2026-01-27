@@ -1,4 +1,3 @@
-
 import { initializeApp } from 'firebase/app';
 import {
     getFirestore, doc, getDoc, setDoc, collection,
@@ -9,13 +8,10 @@ import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { ServicePackage } from '../types';
 
 // --- 1. Environment & Config ---
-// This helper safely gets the environment variables in both Vite (browser) and tsx (Node.js) environments.
 const getEnv = () => {
-    // Vite environment (browser)
     if (typeof import.meta !== 'undefined' && import.meta.env) {
         return import.meta.env;
     }
-    // Node.js environment (for seeding scripts)
     return process.env;
 };
 
@@ -62,7 +58,6 @@ const initialize = () => {
     auth = getAuth(app);
     isInitialized = true;
 
-    // This critical check now works in both browser and Node environments.
     if (env.VITE_USE_FIREBASE_EMULATOR === 'true') {
         try {
             connectFirestoreEmulator(db, 'localhost', 8080);
@@ -130,7 +125,7 @@ export const deleteDocument = async (collectionName: string, docId: string): Pro
 
 export const generateSequenceId = async (prefix: string, entityShortCode: string): Promise<string> => {
     const firestore = getDb();
-    const counterRef = doc(firestore, 'brooks_counters', `${entityShortCode}_${prefix}`);
+    const counterRef = doc(firestore, 'brooks_counters', `${entityShortCode}__ ${prefix}`);
     try {
         const newId = await runTransaction(firestore, async (transaction) => {
             const counterDoc = await transaction.get(counterRef);
@@ -174,7 +169,9 @@ export const getItem = async <T>(key: string): Promise<T | null> => {
 export const clearStore = async () => {
     console.warn("clearStore is not fully implemented for Firestore adapter.");
 };
-
+export const clearAllData = async () => {
+    // Implementation for clearing storage (e.g., IndexedDB or Firebase)
+};
 export const saveServicePackage = async (pkg: ServicePackage): Promise<ServicePackage> => {
     const firestore = getDb();
     const cleanPkg = sanitizeData(pkg);
@@ -188,4 +185,12 @@ export const saveServicePackage = async (pkg: ServicePackage): Promise<ServicePa
         const newDocRef = await addDoc(collectionRef, { ...cleanPkg, created: serverTimestamp(), source: 'Manual-Entry' });
         return { ...cleanPkg, id: newDocRef.id };
     }
+};
+
+/**
+ * BRIDGE EXPORT: Allows ManagementModal to use 'deleteItem' 
+ * while maintaining consistency with Firebase's deleteDocument.
+ */
+export const deleteItem = async (collectionName: string, id: string) => {
+    return deleteDocument(collectionName, id);
 };
