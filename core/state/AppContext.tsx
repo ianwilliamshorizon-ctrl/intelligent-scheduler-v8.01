@@ -3,7 +3,15 @@ import * as T from '../../types';
 import { usePersistentState } from './usePersistentState';
 import { getInitialUsers } from '../data/initialData';
 import { useData } from './DataContext';
-import { getAppEnvironment } from '../db';
+
+// Helper to get a capitalized, user-friendly environment name
+const getFriendlyEnvironmentName = (): T.AppEnvironment => {
+    const mode = import.meta.env.MODE;
+    if (mode === 'development') return 'Development';
+    if (mode === 'production') return 'Production';
+    // Capitalize other modes like 'uat' -> 'UAT'
+    return mode.toUpperCase() as T.AppEnvironment;
+};
 
 export interface ConfirmationState {
     isOpen: boolean;
@@ -39,7 +47,6 @@ interface AppContextType {
     backupSchedule: T.BackupSchedule;
     setBackupSchedule: React.Dispatch<React.SetStateAction<T.BackupSchedule>>;
     appEnvironment: T.AppEnvironment;
-    setAppEnvironment: React.Dispatch<React.SetStateAction<T.AppEnvironment>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -47,33 +54,21 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentView, setCurrentView] = useState<T.ViewType>('dashboard');
     const [selectedEntityId, setSelectedEntityId] = useState<string>('ent_porsche');
-    
     const [users, setUsers] = usePersistentState<T.User[]>('brooks_users', getInitialUsers);
-    
-    // Auth State
     const [currentUser, setCurrentUser] = useState<T.User>(users[0] || getInitialUsers()[0]);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-
     const { businessEntities } = useData();
-    
-    // State for CheckIn Modal
     const [isCheckInOpen, setIsCheckInOpen] = useState(false);
     const [checkingInJobId, setCheckingInJobId] = useState<string | null>(null);
-    
-    // NEW: State for debug mode
     const [isDebugMode, setIsDebugMode] = useState(false);
-
-    // State for global confirmation modal
     const [confirmation, setConfirmation] = useState<ConfirmationState>({ isOpen: false, title: '', message: '' });
-
-    // State for backup schedule
     const [backupSchedule, setBackupSchedule] = usePersistentState<T.BackupSchedule>('brooks_backup_schedule', () => ({
         enabled: true,
         times: ['12:00', '18:00'],
     }));
 
-    // Environment State
-    const [appEnvironment, setAppEnvironment] = usePersistentState<T.AppEnvironment>('brooks_environment', getAppEnvironment);
+    // Environment is determined at build/run time, not a persistent state.
+    const [appEnvironment] = useState<T.AppEnvironment>(getFriendlyEnvironmentName());
 
     useEffect(() => {
         if (users.length === 0) {
@@ -81,13 +76,10 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, [users, setUsers]);
 
-    // Filter business entities to show in the main dropdown.
-    // Restricted to only 'Workshop' types as requested.
     const filteredBusinessEntities = useMemo(() => {
         return businessEntities.filter(e => e.type === 'Workshop');
     }, [businessEntities]);
 
-    // Ensure selectedEntityId is valid for the current filtered list
     React.useEffect(() => {
         if (filteredBusinessEntities.length > 0 && selectedEntityId !== 'all' && !filteredBusinessEntities.some(e => e.id === selectedEntityId)) {
             setSelectedEntityId(filteredBusinessEntities[0].id);
@@ -97,13 +89,10 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const login = (userId: string, password: string): boolean => {
         const user = users.find(u => u.id === userId);
         if (user) {
-            // Default to '1234' for legacy users who might not have a password set in existing data
             const userPassword = user.password || '1234';
-            
             if (userPassword === password) {
                 setCurrentUser(user);
                 setIsAuthenticated(true);
-                // Reset view to dashboard on login
                 setCurrentView('dashboard');
                 return true;
             }
@@ -138,8 +127,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setConfirmation,
         backupSchedule,
         setBackupSchedule,
-        appEnvironment,
-        setAppEnvironment,
+        appEnvironment, // Re-added for the login screen
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

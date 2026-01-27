@@ -1,8 +1,7 @@
 
-import './env'; 
 import { initializeApp } from 'firebase/app';
-import { 
-    getFirestore, doc, getDoc, setDoc, collection, 
+import {
+    getFirestore, doc, getDoc, setDoc, collection,
     onSnapshot, Firestore, connectFirestoreEmulator, runTransaction,
     query, deleteDoc as firestoreDeleteDoc, addDoc, updateDoc, serverTimestamp
 } from 'firebase/firestore';
@@ -10,32 +9,28 @@ import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { ServicePackage } from '../types';
 
 // --- 1. Environment & Config ---
-const getEnv = () => (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : process.env;
-
-export const isDev = () => {
-    if (typeof process !== 'undefined' && process.argv) {
-        return process.argv.includes('--dev');
+// This helper safely gets the environment variables in both Vite (browser) and tsx (Node.js) environments.
+const getEnv = () => {
+    // Vite environment (browser)
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+        return import.meta.env;
     }
-    const env = getEnv();
-    return env.DEV === true || env.VITE_USER_NODE_ENV === 'development';
-};
-
-export const getAppEnvironment = (): 'Production' | 'Development' => {
-    return isDev() ? 'Development' : 'Production';
+    // Node.js environment (for seeding scripts)
+    return process.env;
 };
 
 // --- 2. Data Sanitization ---
 const sanitizeData = (obj: any): any => {
-  if (Array.isArray(obj)) {
-    return obj.map(v => sanitizeData(v));
-  } else if (obj !== null && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .filter(([_, v]) => v !== undefined) 
-        .map(([k, v]) => [k, sanitizeData(v)])
-    );
-  }
-  return obj;
+    if (Array.isArray(obj)) {
+        return obj.map(v => sanitizeData(v));
+    } else if (obj !== null && typeof obj === 'object') {
+        return Object.fromEntries(
+            Object.entries(obj)
+                .filter(([_, v]) => v !== undefined)
+                .map(([k, v]) => [k, sanitizeData(v)])
+        );
+    }
+    return obj;
 };
 
 // --- 3. Lazy Initialization ---
@@ -45,25 +40,37 @@ let isInitialized = false;
 
 const initialize = () => {
     if (isInitialized) return;
+
+    const env = getEnv();
+
     const firebaseConfig = {
-        apiKey: getEnv().VITE_FIREBASE_API_KEY,
-        authDomain: getEnv().VITE_FIREBASE_AUTH_DOMAIN,
-        projectId: getEnv().VITE_FIREBASE_PROJECT_ID,
-        storageBucket: getEnv().VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: getEnv().VITE_FIREBASE_MESSAGING_SENDER_ID,
-        appId: getEnv().VITE_FIREBASE_APP_ID,
+        apiKey: env.VITE_FIREBASE_API_KEY,
+        authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: env.VITE_FIREBASE_APP_ID,
     };
+
     if (!firebaseConfig.projectId) {
-        throw new Error("Firebase Project ID is missing. Check your .env file.");
+        console.error("Firebase Project ID is missing. Check your .env file(s).");
+        throw new Error("Firebase Project ID is missing.");
     }
+
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
     isInitialized = true;
-    if (isDev()) {
-        connectFirestoreEmulator(db, 'localhost', 8080);
-        connectAuthEmulator(auth, 'http://localhost:9099');
-        console.log("🔥 Connected to Firebase Emulators");
+
+    // This critical check now works in both browser and Node environments.
+    if (env.VITE_USE_FIREBASE_EMULATOR === 'true') {
+        try {
+            connectFirestoreEmulator(db, 'localhost', 8080);
+            connectAuthEmulator(auth, 'http://localhost:9099');
+            console.log("🔥 Successfully connected to Firebase Emulators");
+        } catch (error) {
+            console.error("Error connecting to Firebase emulators:", error);
+        }
     } else {
         console.log("☁️ Connected to Cloud Firestore");
     }
@@ -76,7 +83,7 @@ export const getDb = (): Firestore => {
 
 export const getStorageType = () => {
     if (!isInitialized) initialize();
-    return isDev() ? 'emulator' : 'firestore';
+    return getEnv().VITE_USE_FIREBASE_EMULATOR === 'true' ? 'emulator' : 'firestore';
 };
 
 const getAuthInstance = (): any => {

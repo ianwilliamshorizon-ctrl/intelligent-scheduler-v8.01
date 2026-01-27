@@ -1,7 +1,7 @@
 
 import '../env'; // Load environment variables FIRST
 
-import { getDb, isDev } from '../db';
+import { getDb } from '../db';
 import {
     // Foundational Data
     getInitialUsers, getInitialRoles, getInitialBusinessEntities, getInitialTaxRates,
@@ -18,6 +18,12 @@ import {
     getInitialReminders, getInitialAuditLog
 } from '../data/initialData';
 import { setDoc, doc, getDoc } from 'firebase/firestore';
+
+// Helper to check the environment
+const isDev = () => {
+    // This is the reliable way to check for the development/emulator environment
+    return process.env.VITE_USE_FIREBASE_EMULATOR === 'true';
+};
 
 // This function safely seeds a collection in production, only adding new documents.
 const safeSeedCollection = async (collectionName: string, data: any[]) => {
@@ -93,23 +99,38 @@ const seedDatabase = async () => {
         console.log('--- DEV SEEDING COMPLETE ---');
     } else {
         console.log('--- Running in PROD mode. Seeding foundational data only. THIS IS NON-DESTRUCTIVE. ---');
-        // In prod, we ONLY seed foundational data and we NEVER overwrite.
+        // In prod, we seed everything to ensure the app is functional
         await safeSeedCollection('brooks_users', getInitialUsers());
         await safeSeedCollection('brooks_roles', getInitialRoles());
-        await safeSeedCollection('brooks_businessEntities', getInitialBusinessEntities());
-        await safeSeedCollection('brooks_taxRates', getInitialTaxRates());
+        await safeSeedCollection('brooks_customers', getInitialCustomers());
+        await safeSeedCollection('brooks_vehicles', getInitialVehicles());
+        await safeSeedCollection('brooks_jobs', getInitialJobs());
+        await safeSeedCollection('brooks_estimates', getInitialEstimates());
+        await safeSeedCollection('brooks_invoices', getInitialInvoices());
+        await safeSeedCollection('brooks_purchaseOrders', getInitialPurchaseOrders());
+        await safeSeedCollection('brooks_purchases', getInitialPurchases());
+        await safeSeedCollection('brooks_parts', getInitialParts());
+        await safeSeedCollection('brooks_servicePackages', getInitialServicePackages());
+        await safeSeedCollection('brooks_suppliers', getInitialSuppliers());
         await safeSeedCollection('brooks_engineers', getInitialEngineers());
         await safeSeedCollection('brooks_lifts', getInitialLifts());
-        await safeSeedCollection('brooks_nominalCodes', getInitialNominalCodes());
-        await safeSeedCollection('brooks_nominalCodeRules', getInitialNominalCodeRules());
+        await safeSeedCollection('brooks_rentalVehicles', getInitialRentalVehicles());
+        await safeSeedCollection('brooks_rentalBookings', getInitialRentalBookings());
+        await safeSeedCollection('brooks_saleVehicles', getInitialSaleVehicles());
         await safeSeedCollection('brooks_saleOverheadPackages', getInitialSaleOverheadPackages());
+        await safeSeedCollection('brooks_prospects', getInitialProspects());
+        await safeSeedCollection('brooks_storageBookings', getInitialStorageBookings());
         await safeSeedCollection('brooks_storageLocations', getInitialStorageLocations());
         await safeSeedCollection('brooks_batteryChargers', getInitialBatteryChargers());
+        await safeSeedCollection('brooks_nominalCodes', getInitialNominalCodes());
+        await safeSeedCollection('brooks_nominalCodeRules', getInitialNominalCodeRules());
+        await safeSeedCollection('brooks_absenceRequests', getInitialAbsenceRequests());
+        await safeSeedCollection('brooks_inquiries', getInitialInquiries());
+        await safeSeedCollection('brooks_reminders', getInitialReminders());
+        await safeSeedCollection('brooks_auditLog', getInitialAuditLog());
+        await safeSeedCollection('brooks_businessEntities', getInitialBusinessEntities());
+        await safeSeedCollection('brooks_taxRates', getInitialTaxRates());
         await safeSeedCollection('brooks_inspectionDiagrams', getInitialInspectionDiagrams());
-
-        // SEED THE VEHICLES (This was missing for PROD)
-        await safeSeedCollection('brooks_vehicles', getInitialVehicles());
-        
         console.log('--- PROD SEEDING COMPLETE ---');
     }
 };

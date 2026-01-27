@@ -1,15 +1,16 @@
 
 import React, { useState } from 'react';
-import { User, AppEnvironment } from '../types';
+import { User } from '../types';
+import { useApp } from '../core/state/AppContext'; // Import useApp
 import { LogIn, ShieldCheck, ChevronRight, Lock } from 'lucide-react';
 
 interface LoginViewProps {
     users: User[];
     onLogin: (userId: string, password: string) => boolean;
-    environment: AppEnvironment;
 }
 
-const LoginView: React.FC<LoginViewProps> = ({ users, onLogin, environment }) => {
+const LoginView: React.FC<LoginViewProps> = ({ users, onLogin }) => {
+    const { appEnvironment } = useApp(); // Get environment from context
     const [selectedUserId, setSelectedUserId] = useState(users[0]?.id || '');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -105,11 +106,11 @@ const LoginView: React.FC<LoginViewProps> = ({ users, onLogin, environment }) =>
                             Authorized Access Only &bull; v8.01
                         </p>
                         <div className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            environment === 'UAT' ? 'bg-orange-100 text-orange-800' : 
-                            environment === 'Development' ? 'bg-blue-100 text-blue-800' :
+                            appEnvironment === 'UAT' ? 'bg-orange-100 text-orange-800' : 
+                            appEnvironment === 'Development' ? 'bg-blue-100 text-blue-800' :
                             'bg-green-100 text-green-800'
                         }`}>
-                            {environment} Environment
+                            {appEnvironment} Environment
                         </div>
                     </div>
                 </div>

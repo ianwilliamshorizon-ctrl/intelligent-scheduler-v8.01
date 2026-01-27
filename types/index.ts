@@ -11,7 +11,7 @@ export interface BackupSchedule {
   frequency?: 'daily' | 'weekly' | 'monthly';
 }
 
-export type AppEnvironment = 'development' | 'production' | 'staging' | 'Development' | 'Production';
+export type AppEnvironment = 'development' | 'production' | 'staging' | 'Development' | 'Production' | 'UAT' | 'uat';
 
 // --- Core Data Models ---
 
