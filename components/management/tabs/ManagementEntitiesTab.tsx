@@ -1,59 +1,91 @@
-import React from 'react';
-import { BusinessEntity } from '../../../types';
-import { PlusCircle, Building2, MapPin, Phone } from 'lucide-react';
+import React, { useState } from 'react';
+import { useData } from '../../../core/state/DataContext';
+import { useManagementTable } from '../hooks/useManagementTable';
+import { ArrowUpDown, Landmark, Trash2, Plus, ChevronDown } from 'lucide-react';
+import { CheckboxCell } from '../shared/CheckboxCell';
 
-interface ManagementEntitiesTabProps {
-    entities: BusinessEntity[];
-    onAdd: () => void;
-    onEdit: (entity: BusinessEntity) => void;
-    onDelete: (id: string) => void;
+// Local interface to fix "No exported member 'Entity'"
+interface LocalEntity {
+    id: string;
+    name: string;
+    registrationNo?: string;
+    vatNumber?: string;
+    address?: string;
 }
 
-export const ManagementEntitiesTab: React.FC<ManagementEntitiesTabProps> = ({ 
-    entities, 
-    onAdd, 
-    onEdit, 
-    onDelete 
-}) => {
+export const ManagementEntitiesTab: React.FC<{ searchTerm?: string; onShowStatus?: any }> = ({ searchTerm = '', onShowStatus }) => {
+    // Cast to any to fix "Property 'entities' does not exist on DataContextType"
+    const dataContext = useData() as any;
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+
+    const {
+        sortKey,
+        handleSort,
+        displayedData,
+        totalCount,
+        hasMore,
+        handleLoadMore,
+        selectedIds,
+        toggleSelection,
+        toggleSelectAll,
+        deleteItem,
+        bulkDelete
+    } = useManagementTable<LocalEntity>({
+        data: dataContext?.entities || [],
+        collectionName: 'brooks_entities',
+        searchFields: ['name', 'registrationNo'] as any,
+        initialSortKey: 'name' as any,
+        externalSearchTerm: searchTerm
+    });
+
     return (
-        <div>
-            <div className="flex justify-between items-center mb-8">
-                <h3 className="text-xl font-black text-slate-900">Business Entities</h3>
-                <button onClick={onAdd} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black">
-                    Register New Entity
+        <div className="flex flex-col h-full space-y-4">
+            <div className="flex justify-between items-center px-1">
+                <h3 className="text-lg font-semibold text-gray-800">Legal Entities ({totalCount})</h3>
+                <button onClick={() => { setSelectedId(null); setIsModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium">
+                    <Plus size={18} /> Add Entity
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {entities.map(entity => (
-                    <div key={entity.id} className="bg-white border-2 border-slate-100 rounded-[32px] p-8">
-                        <div className="flex justify-between items-start mb-6">
-                            <Building2 size={32} className="text-indigo-600" />
-                            <div className="flex gap-2">
-                                <button onClick={() => onEdit(entity)} className="text-indigo-600 font-bold">Edit</button>
-                                <button onClick={() => onDelete(entity.id)} className="text-rose-600 font-bold">Delete</button>
-                            </div>
-                        </div>
-                        <h4 className="text-2xl font-black text-slate-900 mb-4">{entity.name}</h4>
-                        <div className="space-y-3 mb-8">
-                            <div className="flex items-start gap-3 text-slate-500 text-sm">
-                                <MapPin size={18} />
-                                <span>{entity.addressLine1}, {entity.postcode}</span>
-                            </div>
-                            {/* Check for phone property safety */}
-                            {(entity as any).phone && (
-                                <div className="flex items-center gap-3 text-slate-500 text-sm">
-                                    <Phone size={18} />
-                                    <span>{(entity as any).phone}</span>
+            <div className="flex-grow overflow-auto border border-gray-200 rounded-xl bg-white shadow-sm">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                            <th className="px-6 py-3 text-left w-10">
+                                <input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.size === displayedData.length && displayedData.length > 0} className="rounded" />
+                            </th>
+                            <th className="px-6 py-3 text-left cursor-pointer" onClick={() => handleSort('name' as any)}>
+                                <div className="flex items-center gap-1 uppercase text-xs font-bold text-gray-500">
+                                    Entity Name <ArrowUpDown size={14} className={(sortKey as any) === 'name' ? 'text-indigo-600' : 'text-gray-300'}/>
                                 </div>
-                            )}
-                        </div>
-                        <div className="pt-6 border-t border-slate-50">
-                            <p className="text-[10px] font-black uppercase text-slate-400">Company Number</p>
-                            <p className="text-sm font-mono font-bold text-slate-700">{entity.companyNumber || 'N/A'}</p>
-                        </div>
-                    </div>
-                ))}
+                            </th>
+                            <th className="px-6 py-3 text-left uppercase text-xs font-bold text-gray-500">Registration</th>
+                            <th className="px-6 py-3 text-right uppercase text-xs font-bold text-gray-500">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {displayedData.map((entity) => (
+                            <tr key={entity.id} className="hover:bg-gray-50 group">
+                                <td className="px-6 py-4">
+                                    <CheckboxCell id={entity.id} selectedIds={selectedIds} onToggle={toggleSelection} />
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                        <Landmark size={18} className="text-indigo-500" />
+                                        <span className="text-sm font-bold text-gray-900">{entity.name}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-mono text-gray-500">{entity.registrationNo || 'N/A'}</td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => deleteItem(entity.id)} className="text-red-500"><Trash2 size={16}/></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

@@ -1,81 +1,110 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useData } from '../../../core/state/DataContext';
-import { PlusCircle } from 'lucide-react';
+import { useManagementTable } from '../hooks/useManagementTable';
+import { ArrowUpDown, Hash, Trash2, Plus, ChevronDown, ListTree } from 'lucide-react';
+import { CheckboxCell } from '../shared/CheckboxCell';
 
-export const ManagementNominalCodesTab = ({ 
-    onAddCode, onEditCode, onDeleteCode,
-    onAddRule, onEditRule, onDeleteRule
-}: any) => {
-    const { nominalCodes, nominalCodeRules, businessEntities } = useData();
+// Local interface to fix missing global types
+interface LocalNominalCode {
+    id: string;
+    code: string;
+    name: string;
+    category?: string;
+    description?: string;
+}
+
+export const ManagementNominalCodesTab: React.FC<{ searchTerm?: string; onShowStatus?: any }> = ({ searchTerm = '', onShowStatus }) => {
+    const dataContext = useData() as any;
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+
+    // Using a single object for the hook to fix the "Expected 1 argument" error
+    const {
+        sortKey,
+        handleSort,
+        displayedData,
+        totalCount,
+        hasMore,
+        handleLoadMore,
+        selectedIds,
+        toggleSelection,
+        toggleSelectAll,
+        deleteItem,
+        bulkDelete
+    } = useManagementTable<LocalNominalCode>({
+        data: dataContext?.nominalCodes || [],
+        collectionName: 'brooks_nominal_codes',
+        searchFields: ['code', 'name', 'category'] as any,
+        initialSortKey: 'code' as any,
+        externalSearchTerm: searchTerm
+    });
+
     return (
-        <div className="space-y-6">
-            <div>
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold text-gray-700">Financial Nominal Codes</h3>
-                    <button onClick={onAddCode} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 shadow flex items-center gap-2 text-sm">
-                        <PlusCircle size={16}/> Add Code
-                    </button>
+        <div className="flex flex-col h-full space-y-4">
+            <div className="flex justify-between items-center px-1">
+                <div className="flex items-center gap-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Nominal Codes ({totalCount})</h3>
+                    {selectedIds.size > 0 && (
+                        <button onClick={bulkDelete} className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-bold">
+                            Delete ({selectedIds.size})
+                        </button>
+                    )}
                 </div>
-                <div className="overflow-y-auto max-h-[30vh] border rounded-lg">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-100 sticky top-0"><tr><th className="p-2">Code</th><th className="p-2">Name</th><th className="p-2">Secondary Code</th><th className="p-2">Actions</th></tr></thead>
-                        <tbody>
-                            {nominalCodes.map(nc => (
-                                <tr key={nc.id} className="border-b hover:bg-gray-50">
-                                    <td className="p-2 font-mono font-bold">{nc.code}</td>
-                                    <td className="p-2">{nc.name}</td>
-                                    <td className="p-2 font-mono text-xs">{nc.secondaryCode || '-'}</td>
-                                    <td className="p-2">
-                                        <button onClick={() => onEditCode(nc)} className="text-indigo-600 hover:underline mr-2">Edit</button>
-                                        <button onClick={() => onDeleteCode(nc.id)} className="text-red-600 hover:underline">Delete</button>
+                <button 
+                    onClick={() => { setSelectedId(null); setIsModalOpen(true); }}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700"
+                >
+                    <Plus size={18} /> Add Code
+                </button>
+            </div>
+
+            <div className="flex-grow overflow-auto border border-gray-200 rounded-xl bg-white shadow-sm flex flex-col">
+                <div className="flex-grow overflow-auto">
+                    <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                                <th className="px-6 py-3 text-left w-10 border-b">
+                                    <input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.size === displayedData.length && displayedData.length > 0} className="rounded text-indigo-600" />
+                                </th>
+                                <th className="px-6 py-3 text-left cursor-pointer border-b" onClick={() => handleSort('code' as any)}>
+                                    <div className="flex items-center gap-1 uppercase text-xs font-bold text-gray-500">
+                                        Code <ArrowUpDown size={14} className={(sortKey as any) === 'code' ? 'text-indigo-600' : 'text-gray-300'}/>
+                                    </div>
+                                </th>
+                                <th className="px-6 py-3 text-left uppercase text-xs font-bold text-gray-500 border-b">Description</th>
+                                <th className="px-6 py-3 text-left uppercase text-xs font-bold text-gray-500 border-b">Category</th>
+                                <th className="px-6 py-3 text-right uppercase text-xs font-bold text-gray-500 border-b">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {displayedData.map((item) => (
+                                <tr key={item.id} className="hover:bg-gray-50 group transition-colors">
+                                    <td className="px-6 py-4">
+                                        <CheckboxCell id={item.id} selectedIds={selectedIds} onToggle={toggleSelection} />
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2 text-sm font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded w-fit border border-indigo-100">
+                                            <Hash size={14} /> {item.code}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-900 font-medium">
+                                        {item.name}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-tight bg-gray-100 px-2 py-0.5 rounded">
+                                            {item.category || 'Uncategorized'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => { setSelectedId(item.id); setIsModalOpen(true); }} className="text-indigo-600 text-sm font-bold">Edit</button>
+                                            <button onClick={() => deleteItem(item.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                                                <Trash2 size={16}/>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div>
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold text-gray-700">Assignment Rules</h3>
-                    <button onClick={onAddRule} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow flex items-center gap-2 text-sm">
-                        <PlusCircle size={16}/> Add Rule
-                    </button>
-                </div>
-                <div className="overflow-y-auto max-h-[35vh] border rounded-lg">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-100 sticky top-0">
-                            <tr>
-                                <th className="p-2 w-16 text-center">Priority</th>
-                                <th className="p-2">Type</th>
-                                <th className="p-2">Entity</th>
-                                <th className="p-2">Keywords (Include)</th>
-                                <th className="p-2">Keywords (Exclude)</th>
-                                <th className="p-2">Assigned Code</th>
-                                <th className="p-2">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {[...nominalCodeRules].sort((a, b) => b.priority - a.priority).map(rule => {
-                                const code = nominalCodes.find(c => c.id === rule.nominalCodeId);
-                                const entity = businessEntities.find(e => e.id === rule.entityId);
-                                return (
-                                    <tr key={rule.id} className="border-b hover:bg-gray-50">
-                                        <td className="p-2 text-center font-mono">{rule.priority}</td>
-                                        <td className="p-2"><span className="px-2 py-0.5 bg-gray-200 rounded text-xs">{rule.itemType}</span></td>
-                                        <td className="p-2 text-xs">{entity ? entity.name : (rule.entityId === 'all' ? 'All Entities' : 'Unknown')}</td>
-                                        <td className="p-2 text-xs font-mono">{rule.keywords || '*'}</td>
-                                        <td className="p-2 text-xs font-mono text-red-600">{rule.excludeKeywords || '-'}</td>
-                                        <td className="p-2 text-xs font-semibold">{code ? `${code.code} - ${code.name}` : 'Unknown Code'}</td>
-                                        <td className="p-2">
-                                            <button onClick={() => onEditRule(rule)} className="text-indigo-600 hover:underline mr-2">Edit</button>
-                                            <button onClick={() => onDeleteRule(rule.id)} className="text-red-600 hover:underline">Delete</button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
                         </tbody>
                     </table>
                 </div>

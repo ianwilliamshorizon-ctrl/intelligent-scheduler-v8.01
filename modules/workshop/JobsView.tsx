@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../core/state/AppContext';
 import { useData } from '../../core/state/DataContext';
@@ -17,7 +16,8 @@ interface JobsViewProps {
 const statusFilterOptions: readonly Job['status'][] = ['Unallocated', 'Allocated', 'In Progress', 'Pending QC', 'Complete', 'Invoiced', 'Cancelled', 'Closed'];
 
 const JobsView: React.FC<JobsViewProps> = ({ onEditJob, onSmartCreateClick }) => {
-    const { jobs, customers, vehicles, businessEntities } = useData();
+    // Adding default empty arrays to destructuring to prevent ".map/find is not a function"
+    const { jobs = [], customers = [], vehicles = [], businessEntities = [] } = useData();
     const { selectedEntityId } = useApp();
     const print = usePrint();
     
@@ -25,14 +25,24 @@ const JobsView: React.FC<JobsViewProps> = ({ onEditJob, onSmartCreateClick }) =>
     const [statusFilter, setStatusFilter] = useState<Job['status'][]>([]);
     const [displayLimit, setDisplayLimit] = useState(50);
 
-    const customerMap = useMemo(() => new Map(customers.map(c => [c.id, c])), [customers]);
-    const vehicleMap = useMemo(() => new Map(vehicles.map(v => [v.id, v])), [vehicles]);
+    // Added Array.isArray checks to ensure maps don't crash the component
+    const customerMap = useMemo(() => {
+        return new Map((Array.isArray(customers) ? customers : []).map(c => [c.id, c]));
+    }, [customers]);
+
+    const vehicleMap = useMemo(() => {
+        return new Map((Array.isArray(vehicles) ? vehicles : []).map(v => [v.id, v]));
+    }, [vehicles]);
     
     const filteredJobs = useMemo(() => {
         const thirtyDaysAgo = getRelativeDate(-30);
-        const selectedEntity = businessEntities.find(e => e.id === selectedEntityId);
+        
+        // SAFE FIND: Ensures businessEntities is an array before searching
+        const selectedEntity = Array.isArray(businessEntities) 
+            ? businessEntities.find(e => e.id === selectedEntityId) 
+            : null;
 
-        return jobs.filter(job => {
+        return (Array.isArray(jobs) ? jobs : []).filter(job => {
             // Business Entity Filter (using shortCode prefix)
             if (selectedEntityId !== 'all' && selectedEntity?.shortCode) {
                 if (!job.id.startsWith(selectedEntity.shortCode)) return false;
@@ -59,9 +69,13 @@ const JobsView: React.FC<JobsViewProps> = ({ onEditJob, onSmartCreateClick }) =>
             
             const reg = vehicle?.registration ? String(vehicle.registration).toLowerCase().replace(/\s/g, '') : '';
             const filterNoSpace = lowerFilter.replace(/\s/g, '');
-            const prevRegMatch = (vehicle?.previousRegistrations || []).some(pr => 
-                String(pr.registration).toLowerCase().replace(/\s/g, '').includes(filterNoSpace)
-            );
+            
+            // SAFE SOME: Ensures previousRegistrations is an array
+            const prevRegMatch = Array.isArray(vehicle?.previousRegistrations) 
+                ? vehicle.previousRegistrations.some(pr => 
+                    String(pr.registration).toLowerCase().replace(/\s/g, '').includes(filterNoSpace)
+                  )
+                : false;
 
             return filter === '' ||
                 jobId.includes(lowerFilter) ||
@@ -148,11 +162,11 @@ const JobsView: React.FC<JobsViewProps> = ({ onEditJob, onSmartCreateClick }) =>
                                 const vehicle = vehicleMap.get(job.vehicleId);
                                 const customer = customerMap.get(job.customerId);
                                 return (
-                                <tr key={job.id} className="hover:bg-indigo-50">
+                                <tr key={job.id} className="hover:bg-indigo-50" onClick={() => onEditJob(job.id)}>
                                     <td className="p-3 font-mono">{job.id}</td>
                                     <td className="p-3">{job.createdAt}</td>
-                                    <td className="p-3">{getCustomerDisplayName(customer)}</td>
-                                    <td className="p-3 font-mono">{vehicle?.registration}</td>
+                                    <td className="p-3">{customer ? getCustomerDisplayName(customer) : 'Unknown'}</td>
+                                    <td className="p-3 font-mono">{vehicle?.registration || 'N/A'}</td>
                                     <td className="p-3">{job.description}</td>
                                     <td className="p-3">
                                         <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${

@@ -1,56 +1,101 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useData } from '../../../core/state/DataContext';
-import { PlusCircle, Trash2, Edit, FolderInput, CarFront } from 'lucide-react';
-import AsyncImage from '../../AsyncImage';
+import { useManagementTable } from '../hooks/useManagementTable';
+import { ArrowUpDown, Image as ImageIcon, Trash2, Plus, ChevronDown, ExternalLink } from 'lucide-react';
+import { CheckboxCell } from '../shared/CheckboxCell';
 
-export const ManagementDiagramsTab = ({ 
-    searchTerm, 
-    onAdd, 
-    onEdit, 
-    onDelete, 
-    onBulkUpload
-}: any) => {
-    const { inspectionDiagrams } = useData();
-    const filtered = inspectionDiagrams.filter(d => 
-        d.make.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        d.model.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+// We define the local interface to solve the "No exported member" error
+interface LocalDiagram {
+    id: string;
+    name: string;
+    category?: string;
+    imageUrl?: string;
+    referenceNumber?: string;
+}
+
+const DIAGRAM_MAP = {
+    title: 'name',
+    category: 'category',
+    url: 'imageUrl',
+    ref: 'referenceNumber'
+} as const;
+
+export const ManagementDiagramsTab: React.FC<{ searchTerm?: string; onShowStatus?: any }> = ({ searchTerm = '', onShowStatus }) => {
+    const dataContext = useData() as any; // Cast to any to bypass strict DataContextType missing props
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+
+    const {
+        sortKey,
+        handleSort,
+        displayedData,
+        totalCount,
+        hasMore,
+        handleLoadMore,
+        selectedIds,
+        toggleSelection,
+        toggleSelectAll,
+        deleteItem,
+        bulkDelete
+    } = useManagementTable<LocalDiagram>({
+        data: dataContext?.diagrams || [],
+        collectionName: 'brooks_diagrams',
+        searchFields: ['name', 'category', 'referenceNumber'] as any,
+        initialSortKey: 'name' as any,
+        externalSearchTerm: searchTerm
+    });
 
     return (
-        <div>
-             <div className="flex justify-end items-center mb-4 gap-2">
-                <label className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 cursor-pointer shadow">
-                    <FolderInput size={16}/> Bulk Upload
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={onBulkUpload} />
-                </label>
-                <button onClick={onAdd} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 shadow flex items-center gap-2">
-                    <PlusCircle size={16}/> Add Diagram
+        <div className="flex flex-col h-full space-y-4">
+            <div className="flex justify-between items-center px-1">
+                <div className="flex items-center gap-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Diagram Library ({totalCount})</h3>
+                    {selectedIds.size > 0 && (
+                        <button onClick={bulkDelete} className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-md text-xs font-bold">
+                            Delete Selected ({selectedIds.size})
+                        </button>
+                    )}
+                </div>
+                <button onClick={() => { setSelectedId(null); setIsModalOpen(true); }} className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium">
+                    <Plus size={18} className="inline mr-1" /> Upload
                 </button>
             </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-y-auto max-h-[70vh]">
-                {filtered.map(d => (
-                    <div key={d.id} className="border rounded-lg bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow relative group">
-                        <div className="h-32 bg-gray-100 flex items-center justify-center p-2">
-                            <AsyncImage imageId={d.imageId} alt={`${d.make} ${d.model}`} className="max-w-full max-h-full object-contain"/>
-                        </div>
-                        <div className="p-3">
-                            <h4 className="font-bold text-sm text-gray-800">{d.make}</h4>
-                            <p className="text-xs text-gray-600">{d.model}</p>
-                        </div>
-                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => onEdit(d)} className="p-1 bg-white rounded-full text-indigo-600 hover:text-indigo-800 shadow"><Edit size={14}/></button>
-                            <button onClick={() => onDelete(d.id)} className="p-1 bg-white rounded-full text-red-600 hover:text-red-800 shadow"><Trash2 size={14}/></button>
-                        </div>
-                    </div>
-                ))}
-                 {filtered.length === 0 && (
-                    <div className="col-span-full text-center py-10 text-gray-500">
-                        <CarFront size={48} className="mx-auto mb-2 text-gray-300" />
-                        <p>No diagrams found.</p>
-                    </div>
-                )}
+
+            <div className="flex-grow overflow-auto border border-gray-200 rounded-xl bg-white shadow-sm">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                            <th className="px-6 py-3 text-left w-10">
+                                <input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.size === displayedData.length && displayedData.length > 0} className="rounded" />
+                            </th>
+                            <th className="px-6 py-3 text-left cursor-pointer" onClick={() => handleSort('name' as any)}>
+                                <div className="flex items-center gap-1 uppercase text-xs font-bold text-gray-500">
+                                    Name <ArrowUpDown size={14} className={(sortKey as any) === 'name' ? 'text-indigo-600' : 'text-gray-300'}/>
+                                </div>
+                            </th>
+                            <th className="px-6 py-3 text-left uppercase text-xs font-bold text-gray-500">Category</th>
+                            <th className="px-6 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {displayedData.map((item: any) => (
+                            <tr key={item.id} className="hover:bg-gray-50 group">
+                                <td className="px-6 py-4">
+                                    <CheckboxCell id={item.id} selectedIds={selectedIds} onToggle={toggleSelection} />
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3 text-sm font-semibold text-gray-900">{item.name}</div>
+                                </td>
+                                <td className="px-6 py-4 text-xs text-blue-600 font-bold uppercase">{item.category || 'General'}</td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => deleteItem(item.id)} className="text-red-600"><Trash2 size={16}/></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

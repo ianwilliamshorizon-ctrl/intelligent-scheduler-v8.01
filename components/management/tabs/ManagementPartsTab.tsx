@@ -1,86 +1,86 @@
-import React from 'react';
-import { Part } from '../../../types';
-import { PlusCircle, Package, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { useData } from '../../../core/state/DataContext';
+import { useManagementTable } from '../hooks/useManagementTable';
+import { ArrowUpDown, Box, Trash2, Plus } from 'lucide-react';
 import { CheckboxCell } from '../shared/CheckboxCell';
 
-interface ManagementPartsTabProps {
-    parts: Part[];
-    searchTerm: string;
-    onAdd: () => void;
-    onEdit: (part: Part) => void;
-    onDelete: (id: string) => void;
-    selectedIds?: Set<string>;
-    onToggleSelection?: (id: string) => void;
-    onSelectAll?: (items: Part[]) => void;
+interface LocalPart {
+    id: string;
+    partNumber: string;
+    description: string;
+    stockLevel: number;
+    price: number;
 }
 
-export const ManagementPartsTab: React.FC<ManagementPartsTabProps> = ({ 
-    parts, 
-    searchTerm, 
-    onAdd, 
-    onEdit, 
-    onDelete,
-    selectedIds = new Set(),
-    onToggleSelection = () => {},
-    onSelectAll = () => {}
-}) => {
-    // Fix: Using part.description as standard fallback for part.name
-    const filtered = parts.filter(p => 
-        ((p as any).name || (p as any).description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.partNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+// THIS NAME MUST MATCH THE IMPORT IN ManagementViews.tsx
+export const ManagementPartsTab: React.FC<{ searchTerm?: string; onShowStatus?: any }> = ({ searchTerm = '', onShowStatus }) => {
+    const dataContext = useData() as any;
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+
+    const {
+        sortKey,
+        handleSort,
+        displayedData,
+        totalCount,
+        selectedIds,
+        toggleSelection,
+        toggleSelectAll,
+        deleteItem,
+        bulkDelete
+    } = useManagementTable<LocalPart>({
+        data: dataContext?.parts || [],
+        collectionName: 'brooks_parts',
+        searchFields: ['partNumber', 'description'] as any,
+        initialSortKey: 'partNumber' as any,
+        externalSearchTerm: searchTerm
+    });
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-2">
-                    {selectedIds.size > 0 && (
-                        <button className="bg-rose-100 text-rose-700 px-4 py-2 rounded-xl hover:bg-rose-200 flex items-center gap-2 text-sm font-bold transition-colors">
-                            <Trash2 size={16}/> Delete ({selectedIds.size})
-                        </button>
-                    )}
-                </div>
+        <div className="flex flex-col h-full space-y-4">
+            <div className="flex justify-between items-center px-1">
+                <h3 className="text-lg font-semibold text-gray-800">Parts Inventory ({totalCount})</h3>
                 <button 
-                    onClick={onAdd} 
-                    className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-200 flex items-center gap-2 font-black transition-all"
+                    onClick={() => { setSelectedId(null); setIsModalOpen(true); }}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700"
                 >
-                    <PlusCircle size={18}/> New Inventory Item
+                    <Plus size={18} /> Add Part
                 </button>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+            <div className="flex-grow overflow-auto border border-gray-200 rounded-xl bg-white shadow-sm flex flex-col">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
-                            <th className="p-4 w-12 text-center">
+                            <th className="px-6 py-3 text-left w-10 border-b">
                                 <input 
                                     type="checkbox" 
-                                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
-                                    onChange={() => onSelectAll(filtered)}
-                                    className="rounded border-slate-300 text-indigo-600" 
+                                    onChange={toggleSelectAll} 
+                                    checked={selectedIds.size === displayedData.length && displayedData.length > 0} 
+                                    className="rounded text-indigo-600" 
                                 />
                             </th>
-                            <th className="p-4 font-black text-slate-500 uppercase tracking-wider text-[11px]">Part Details</th>
-                            <th className="p-4 font-black text-slate-500 uppercase tracking-wider text-[11px]">Stock Level</th>
-                            <th className="p-4 font-black text-slate-500 uppercase tracking-wider text-[11px]">Price</th>
-                            <th className="p-4 font-black text-slate-500 uppercase tracking-wider text-[11px] text-right">Actions</th>
+                            <th className="px-6 py-3 text-left cursor-pointer border-b" onClick={() => handleSort('partNumber' as any)}>
+                                <div className="flex items-center gap-1 uppercase text-xs font-bold text-gray-500">
+                                    Part # <ArrowUpDown size={14} />
+                                </div>
+                            </th>
+                            <th className="px-6 py-3 text-left uppercase text-xs font-bold text-gray-500 border-b">Description</th>
+                            <th className="px-6 py-3 text-right uppercase text-xs font-bold text-gray-500 border-b">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {filtered.map(part => (
-                            <tr key={part.id} className="hover:bg-slate-50/80 transition-colors">
-                                <CheckboxCell id={part.id} selectedIds={selectedIds} onToggle={onToggleSelection} />
-                                <td className="p-4">
-                                    <div className="flex flex-col">
-                                        <span className="font-black text-slate-900">{(part as any).name || (part as any).description}</span>
-                                        <span className="text-[10px] font-mono text-slate-400 uppercase">{part.partNumber || 'No Part Number'}</span>
-                                    </div>
+                    <tbody className="divide-y divide-gray-100">
+                        {displayedData.map((part) => (
+                            <tr key={part.id} className="hover:bg-gray-50 group">
+                                <td className="px-6 py-4">
+                                    <CheckboxCell id={part.id} selectedIds={selectedIds} onToggle={toggleSelection} />
                                 </td>
-                                <td className="p-4 font-bold text-slate-700">{part.stockQuantity || 0} in stock</td>
-                                <td className="p-4 font-mono font-bold text-slate-600">£{((part as any).unitPrice || (part as any).price || 0).toFixed(2)}</td>
-                                <td className="p-4 text-right">
-                                    <button onClick={() => onEdit(part)} className="text-indigo-600 font-bold hover:underline mr-4">Edit</button>
-                                    <button onClick={() => onDelete(part.id)} className="text-rose-600 font-bold hover:underline">Delete</button>
+                                <td className="px-6 py-4 text-sm font-mono font-bold text-gray-900">{part.partNumber}</td>
+                                <td className="px-6 py-4 text-sm text-gray-600">{part.description}</td>
+                                <td className="px-6 py-4 text-right">
+                                    <button onClick={() => deleteItem(part.id)} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Trash2 size={16}/>
+                                    </button>
                                 </td>
                             </tr>
                         ))}

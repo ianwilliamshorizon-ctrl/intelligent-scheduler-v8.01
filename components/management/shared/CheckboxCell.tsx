@@ -1,13 +1,19 @@
-
 import React from 'react';
 
-export const CheckboxCell = ({ id, selectedIds, onToggle }: { id: string, selectedIds: Set<string>, onToggle: (id: string) => void }) => (
-    <td className="p-2 text-center">
-        <input 
-            type="checkbox" 
-            checked={selectedIds.has(id)} 
+interface CheckboxCellProps {
+    id: string;
+    selectedIds: Set<string>;
+    onToggle: (id: string) => void;
+}
+
+export const CheckboxCell: React.FC<CheckboxCellProps> = ({ id, selectedIds, onToggle }) => {
+    return (
+        <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            checked={selectedIds.has(id)}
             onChange={() => onToggle(id)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            onClick={(e) => e.stopPropagation()} // Prevents row click events
         />
-    </td>
-);
+    );
+};
