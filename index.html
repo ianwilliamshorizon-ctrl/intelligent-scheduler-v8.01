@@ -1,11 +1,11 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>BROOKSPEED Dispatch v8.01</title>
+    
     <script>
       // Suppress the Tailwind CDN production warning
       const originalWarn = console.warn;
@@ -16,14 +16,34 @@
         originalWarn(...args);
       };
     </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
-      body {
+      /* --- CORE SIZING FIXES --- */
+      html, body {
+        height: 100% !important;
+        width: 100% !important;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden; /* Prevents unwanted horizontal scrolling */
+        background-color: #f9fafb; /* Matches gray-50 */
         font-family: 'Inter', sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
+      
+      #root {
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* --- YOUR ANIMATIONS --- */
       @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
@@ -39,7 +59,7 @@
         animation: fadeInUp 0.3s ease-out;
       }
       
-      /* --- Drag and Drop Styles --- */
+      /* --- DRAG AND DROP STYLES --- */
       .is-dragging-source {
         opacity: 0.5;
         border: 2px dashed #4f46e5;
@@ -64,7 +84,7 @@
         background-color: #eef2ff;
       }
 
-      /* --- Animated Checkmark --- */
+      /* --- ANIMATED CHECKMARK --- */
       .animated-checkmark-icon {
         width: 48px;
         height: 48px;
@@ -89,7 +109,6 @@
       }
 
       /* --- PRINT STYLES --- */
-      /* Default state for print wrapper: Hidden on screen */
       #print-mount-point-wrapper {
         display: none;
       }
@@ -108,12 +127,10 @@
           print-color-adjust: exact !important;
         }
 
-        /* Hide the main React application */
         body > #root {
           display: none !important;
         }
         
-        /* Show the print wrapper and position it absolutely to overlay everything */
         body > #print-mount-point-wrapper {
           display: block !important;
           position: absolute;
@@ -145,20 +162,11 @@
             break-before: auto !important;
         }
         
-        .page-break-inside-avoid {
+        .page-break-inside-avoid, .break-inside-avoid {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-        }
-        .break-inside-avoid {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-        }
-        .page-break-after-avoid {
-             page-break-after: avoid !important;
-             break-after: avoid !important;
         }
 
-        /* Allow tables to break across pages, but protect rows */
         table {
             page-break-inside: auto !important;
             break-inside: auto !important;
@@ -166,34 +174,34 @@
         tr {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            page-break-after: auto;
         }
         thead { display: table-header-group; } 
         tfoot { display: table-footer-group; }
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.22.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.544.0",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
-    "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
-    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js",
-    "firebase/auth": "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
-  <body>
-    <div id="root"></div>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.22.0",
+        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.544.0",
+        "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+        "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
+        "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1",
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js",
+        "firebase/": "https://esm.sh/firebase@^12.7.0/"
+      }
+    }
+    </script>
+    <link rel="stylesheet" href="/index.css">
+  </head>
+  <body class="bg-gray-50">
+    <div id="root" class="w-full min-h-screen"></div>
     <div id="print-mount-point-wrapper"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

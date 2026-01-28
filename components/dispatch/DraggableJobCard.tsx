@@ -84,22 +84,18 @@ export const DraggableJobCard: React.FC<{
             </div>
 
             {associatedPOs && associatedPOs.length > 0 && (
-                <div className="pt-2 mt-2 border-t">
-                    <h5 className="font-bold text-gray-700 text-xs mb-1">Purchase Orders:</h5>
-                    <div className="space-y-1">
-                        {associatedPOs.map(po => (
-                            <button
-                                key={po.id}
-                                onClick={(e) => { e.stopPropagation(); onOpenPurchaseOrder(po); }}
-                                className="w-full text-left p-1.5 rounded hover:bg-gray-200 transition-colors flex justify-between items-center text-xs"
-                            >
-                                <span className="font-mono font-semibold">{po.id}</span>
-                                <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${getPoStatusColor(po.status, 'bg')} ${getPoStatusColor(po.status, 'text')}`}>
-                                    {po.status}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
+                <div className="flex flex-wrap gap-1 mt-1 pt-1 border-t border-black/5">
+                    {associatedPOs.map(po => (
+                        <button
+                            key={po.id}
+                            onClick={(e) => { e.stopPropagation(); onOpenPurchaseOrder(po); }}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] transition-colors ${getPoStatusColor(po.status, 'bg')} ${getPoStatusColor(po.status, 'text')} border-current opacity-90 hover:opacity-100`}
+                            title={`View PO #${po.id} (${po.status})`}
+                        >
+                            <PackageIcon size={10} />
+                            <span className="font-mono font-semibold">{po.id}</span>
+                        </button>
+                    ))}
                 </div>
             )}
              <div className="flex justify-between items-center pt-2 border-t mt-2">

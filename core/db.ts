@@ -125,7 +125,7 @@ export const deleteDocument = async (collectionName: string, docId: string): Pro
 
 export const generateSequenceId = async (prefix: string, entityShortCode: string): Promise<string> => {
     const firestore = getDb();
-    const counterRef = doc(firestore, 'brooks_counters', `${entityShortCode}__ ${prefix}`);
+    const counterRef = doc(firestore, 'brooks_counters', `${entityShortCode}__${prefix}`);
     try {
         const newId = await runTransaction(firestore, async (transaction) => {
             const counterDoc = await transaction.get(counterRef);
@@ -143,14 +143,17 @@ export const generateSequenceId = async (prefix: string, entityShortCode: string
 export const setItem = async (key: string, value: any) => {
     const firestore = getDb();
     const cleanValue = sanitizeData(value);
+    
     if (Array.isArray(cleanValue)) {
+        // Save each item in the array to its own document in the collection
         const batchPromises = cleanValue.map(item => {
-            if (!item.id) return Promise.resolve();
+            if (!item || !item.id) return Promise.resolve();
             const docRef = doc(firestore, key, item.id);
             return setDoc(docRef, item, { merge: true });
         });
         await Promise.all(batchPromises);
     } else {
+        // Save as a single setting document
         const docRef = doc(firestore, 'brooks_settings', key);
         await setDoc(docRef, cleanValue !== null && typeof cleanValue === 'object' ? cleanValue : { value: cleanValue }, { merge: true });
     }
@@ -169,9 +172,11 @@ export const getItem = async <T>(key: string): Promise<T | null> => {
 export const clearStore = async () => {
     console.warn("clearStore is not fully implemented for Firestore adapter.");
 };
+
 export const clearAllData = async () => {
-    // Implementation for clearing storage (e.g., IndexedDB or Firebase)
+    // Implementation for clearing storage
 };
+
 export const saveServicePackage = async (pkg: ServicePackage): Promise<ServicePackage> => {
     const firestore = getDb();
     const cleanPkg = sanitizeData(pkg);
@@ -187,10 +192,6 @@ export const saveServicePackage = async (pkg: ServicePackage): Promise<ServicePa
     }
 };
 
-/**
- * BRIDGE EXPORT: Allows ManagementModal to use 'deleteItem' 
- * while maintaining consistency with Firebase's deleteDocument.
- */
 export const deleteItem = async (collectionName: string, id: string) => {
     return deleteDocument(collectionName, id);
 };

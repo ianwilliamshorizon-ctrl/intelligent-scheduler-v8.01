@@ -105,6 +105,23 @@ const ConciergeJobCard: React.FC<{
                 <p>{job.estimatedHours} hours</p>
             </div>
 
+             {/* Purchase Orders Links */}
+             {associatedPOs.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                    {associatedPOs.map(po => (
+                        <button
+                            key={po.id}
+                            onClick={(e) => { e.stopPropagation(); onOpenPurchaseOrder(po); }}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] transition-colors ${getPoStatusColor(po.status, 'bg')} ${getPoStatusColor(po.status, 'text')} border-current opacity-90 hover:opacity-100`}
+                            title={`View PO #${po.id} (${po.status})`}
+                        >
+                            <PackageIcon size={8} />
+                            <span className="font-mono font-semibold">{po.id}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {/* Segments for Today */}
             {segmentsToday.length > 0 && (
                 <div className="mt-1 pt-1 border-t text-[10px] space-y-0.5">

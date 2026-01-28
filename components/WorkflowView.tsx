@@ -1,9 +1,11 @@
 
 import React, { useMemo, useState } from 'react';
-import { Job, Vehicle, Customer, Engineer, User } from '../types';
-import { ClipboardCheck, FileText, CheckCircle, Car, User as UserIcon, MessageSquare, Clock, Wrench, PlayCircle, Search, X, PauseCircle, Wand2 } from 'lucide-react';
+import { Job, Vehicle, Customer, Engineer, User, PurchaseOrder } from '../types';
+import { ClipboardCheck, FileText, CheckCircle, Car, User as UserIcon, MessageSquare, Clock, Wrench, PlayCircle, Search, X, PauseCircle, Wand2, Package as PackageIcon } from 'lucide-react';
 import { formatReadableDate, getRelativeDate } from '../core/utils/dateUtils';
 import { TIME_SEGMENTS, SEGMENT_DURATION_MINUTES, END_HOUR, END_MINUTE } from '../constants';
+import { useData } from '../core/state/DataContext';
+import { getPoStatusColor } from '../core/utils/statusUtils';
 
 // A generic, reusable card for displaying job info in the workflow columns.
 const WorkflowJobCard: React.FC<{
@@ -14,7 +16,9 @@ const WorkflowJobCard: React.FC<{
     statusColorClass: string;
     onEdit: (jobId: string) => void;
     onOpenAssistant: (jobId: string) => void;
-}> = ({ job, vehicle, customer, children, statusColorClass, onEdit, onOpenAssistant }) => {
+    onOpenPurchaseOrder: (po: PurchaseOrder) => void;
+    purchaseOrders: PurchaseOrder[];
+}> = ({ job, vehicle, customer, children, statusColorClass, onEdit, onOpenAssistant, onOpenPurchaseOrder, purchaseOrders }) => {
     
     const { partsStatus } = job;
     const cardBgClass = () => {
@@ -26,6 +30,8 @@ const WorkflowJobCard: React.FC<{
             default: return 'bg-white';
         }
     };
+
+    const associatedPOs = (job.purchaseOrderIds || []).map(id => purchaseOrders.find(po => po.id === id)).filter(Boolean) as PurchaseOrder[];
     
     return (
         <div 
@@ -45,6 +51,22 @@ const WorkflowJobCard: React.FC<{
                     <button onClick={(e) => { e.stopPropagation(); onOpenAssistant(job.id); }} className="p-1.5 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200" title="Technical Assistant"><Wand2 size={14} /></button>
                 </div>
             </div>
+
+            {associatedPOs && associatedPOs.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2 pt-1 border-t border-black/5">
+                    {associatedPOs.map(po => (
+                        <button
+                            key={po.id}
+                            onClick={(e) => { e.stopPropagation(); onOpenPurchaseOrder(po); }}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] transition-colors ${getPoStatusColor(po.status, 'bg')} ${getPoStatusColor(po.status, 'text')} border-current opacity-90 hover:opacity-100`}
+                            title={`View PO #${po.id} (${po.status})`}
+                        >
+                            <PackageIcon size={10} />
+                            <span className="font-mono font-semibold">{po.id}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
             {children}
         </div>
     );
@@ -65,9 +87,11 @@ interface WorkflowViewProps {
     onPause: (jobId: string, segmentId: string) => void;
     onRestart: (jobId: string, segmentId: string) => void;
     onOpenAssistant: (jobId: string) => void;
+    onOpenPurchaseOrder: (po: PurchaseOrder) => void;
 }
 
-const WorkflowView: React.FC<WorkflowViewProps> = ({ jobs, vehicles, customers, engineers, onQcApprove, onGenerateInvoice, onEditJob, currentUser, onStartWork, onEngineerComplete, onPause, onRestart, onOpenAssistant }) => {
+const WorkflowView: React.FC<WorkflowViewProps> = ({ jobs, vehicles, customers, engineers, onQcApprove, onGenerateInvoice, onEditJob, currentUser, onStartWork, onEngineerComplete, onPause, onRestart, onOpenAssistant, onOpenPurchaseOrder }) => {
+    const { purchaseOrders } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedEngineerId, setSelectedEngineerId] = useState<string>('all');
     // Default to '7days' as per user request
@@ -239,6 +263,8 @@ const WorkflowView: React.FC<WorkflowViewProps> = ({ jobs, vehicles, customers, 
                                         statusColorClass={color}
                                         onEdit={onEditJob}
                                         onOpenAssistant={onOpenAssistant}
+                                        onOpenPurchaseOrder={onOpenPurchaseOrder}
+                                        purchaseOrders={purchaseOrders}
                                     >
                                         <div className="mt-2 text-xs space-y-1">
                                             {(job.segments || []).filter(s => s.date && s.date >= today && s.date <= filterEndDate && s.allocatedLift).map(seg => {

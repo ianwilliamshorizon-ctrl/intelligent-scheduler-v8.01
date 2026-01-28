@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useMemo } from 'react';
 import * as T from '../../types';
 import { usePersistentState } from './usePersistentState';
-import { getInitialUsers } from '../data/initialData';
 import { useData } from './DataContext';
-import { getInitialAppEnvironment } from '../config/firebaseConfig';
+import { getActiveEnvironment } from '../config/firebaseConfig';
 
 export interface ConfirmationState {
     isOpen: boolean;
@@ -20,8 +19,8 @@ interface AppContextType {
     setCurrentView: React.Dispatch<React.SetStateAction<T.ViewType>>;
     selectedEntityId: string;
     setSelectedEntityId: React.Dispatch<React.SetStateAction<string>>;
-    currentUser: T.User;
-    setCurrentUser: React.Dispatch<React.SetStateAction<T.User>>;
+    currentUser: T.User | null;
+    setCurrentUser: React.Dispatch<React.SetStateAction<T.User | null>>;
     isAuthenticated: boolean;
     login: (userId: string, password: string) => boolean;
     logout: () => void;
@@ -45,22 +44,21 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    // Consume users and businessEntities from DataContext
+    const { users, setUsers, businessEntities } = useData();
+
     const [currentView, setCurrentView] = useState<T.ViewType>('dashboard');
     const [selectedEntityId, setSelectedEntityId] = useState<string>('ent_porsche');
     
-    const [users, setUsers] = usePersistentState<T.User[]>('brooks_users', getInitialUsers);
-    
     // Auth State
-    const [currentUser, setCurrentUser] = useState<T.User>(users[0] || getInitialUsers()[0]);
+    const [currentUser, setCurrentUser] = useState<T.User | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    const { businessEntities } = useData();
-    
     // State for CheckIn Modal
     const [isCheckInOpen, setIsCheckInOpen] = useState(false);
     const [checkingInJobId, setCheckingInJobId] = useState<string | null>(null);
     
-    // NEW: State for debug mode
+    // State for debug mode
     const [isDebugMode, setIsDebugMode] = useState(false);
 
     // State for global confirmation modal
@@ -73,10 +71,9 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
 
     // Environment State
-    const [appEnvironment, setAppEnvironment] = usePersistentState<T.AppEnvironment>('brooks_environment', getInitialAppEnvironment);
+    const [appEnvironment, setAppEnvironment] = usePersistentState<T.AppEnvironment>('brooks_environment', getActiveEnvironment);
 
     // Filter business entities to show in the main dropdown.
-    // Restricted to only 'Workshop' types as requested.
     const filteredBusinessEntities = useMemo(() => {
         return businessEntities.filter(e => e.type === 'Workshop');
     }, [businessEntities]);
@@ -91,13 +88,12 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const login = (userId: string, password: string): boolean => {
         const user = users.find(u => u.id === userId);
         if (user) {
-            // Default to '1234' for legacy users who might not have a password set in existing data
+            // Default to '1234' for legacy users
             const userPassword = user.password || '1234';
             
             if (userPassword === password) {
                 setCurrentUser(user);
                 setIsAuthenticated(true);
-                // Reset view to dashboard on login
                 setCurrentView('dashboard');
                 return true;
             }
@@ -106,6 +102,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     const logout = () => {
+        setCurrentUser(null);
         setIsAuthenticated(false);
     };
 

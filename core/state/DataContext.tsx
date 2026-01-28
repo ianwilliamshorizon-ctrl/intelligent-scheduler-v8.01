@@ -45,6 +45,7 @@ interface DataContextType {
     taxRates: T.TaxRate[]; setTaxRates: React.Dispatch<React.SetStateAction<T.TaxRate[]>>;
     roles: T.Role[]; setRoles: React.Dispatch<React.SetStateAction<T.Role[]>>;
     inspectionDiagrams: T.InspectionDiagram[]; setInspectionDiagrams: React.Dispatch<React.SetStateAction<T.InspectionDiagram[]>>;
+    users: T.User[]; setUsers: React.Dispatch<React.SetStateAction<T.User[]>>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -81,6 +82,7 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [taxRates, setTaxRates] = usePersistentState<T.TaxRate[]>('brooks_taxRates', getInitialTaxRates);
     const [roles, setRoles] = usePersistentState<T.Role[]>('brooks_roles', getInitialRoles);
     const [inspectionDiagrams, setInspectionDiagrams] = usePersistentState<T.InspectionDiagram[]>('brooks_inspectionDiagrams', getInitialInspectionDiagrams);
+    const [users, setUsers] = usePersistentState<T.User[]>('brooks_users', getInitialUsers);
 
     // Migration Logic for Images (One-time run to move data URLs from JSON to IndexedDB)
     useEffect(() => {
@@ -134,8 +136,9 @@ export const DataContextProvider: React.FC<{ children: React.ReactNode }> = ({ c
         businessEntities, setBusinessEntities,
         taxRates, setTaxRates,
         roles, setRoles,
-        inspectionDiagrams, setInspectionDiagrams
-    }), [jobs, vehicles, customers, estimates, invoices, purchaseOrders, purchases, parts, servicePackages, suppliers, engineers, lifts, rentalVehicles, rentalBookings, saleVehicles, saleOverheadPackages, prospects, storageBookings, storageLocations, batteryChargers, nominalCodes, nominalCodeRules, absenceRequests, inquiries, reminders, auditLog, businessEntities, taxRates, roles, inspectionDiagrams]);
+        inspectionDiagrams, setInspectionDiagrams,
+        users, setUsers
+    }), [jobs, vehicles, customers, estimates, invoices, purchaseOrders, purchases, parts, servicePackages, suppliers, engineers, lifts, rentalVehicles, rentalBookings, saleVehicles, saleOverheadPackages, prospects, storageBookings, storageLocations, batteryChargers, nominalCodes, nominalCodeRules, absenceRequests, inquiries, reminders, auditLog, businessEntities, taxRates, roles, inspectionDiagrams, users]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

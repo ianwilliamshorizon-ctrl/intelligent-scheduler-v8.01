@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import * as T from './types';
 import { useData } from './core/state/DataContext';
@@ -170,7 +169,7 @@ const App = () => {
     }, [backupSchedule, handleAutoBackup]);
 
     // --- Authentication Guard ---
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !currentUser) {
         return <LoginView users={users} onLogin={login} environment={appEnvironment} />;
     }
 
@@ -189,10 +188,10 @@ const App = () => {
         const existingInquiry = inquiries.find(i => i.linkedEstimateId === estimate.id);
         if (existingInquiry) {
             const updatedInquiry = { ...existingInquiry, status: 'Approved' as const, message: existingInquiry.message + '\n\n' + inquiryMessage, actionNotes: (existingInquiry.actionNotes || '') + '\n[System]: Customer Approved Online. Action Required.' };
-            handleSaveItem(setInquiries, updatedInquiry);
+            handleSaveItem(setInquiries as any, updatedInquiry);
         } else {
             const newInquiry: T.Inquiry = { id: crypto.randomUUID(), entityId: estimate.entityId, createdAt: new Date().toISOString(), fromName: getCustomerDisplayName(customer), fromContact: customer?.email || customer?.mobile || "Client Portal", message: inquiryMessage, takenByUserId: 'system', status: 'Approved', linkedCustomerId: estimate.customerId, linkedVehicleId: estimate.vehicleId, linkedEstimateId: estimate.id, actionNotes: 'Auto-generated from Customer Estimate Approval. Please review dates and convert to Job.' };
-            handleSaveItem(setInquiries, newInquiry);
+            handleSaveItem(setInquiries as any, newInquiry);
         }
         const updatedEstimate: T.Estimate = { ...estimate, status: 'Approved' };
         handleSaveItem(setEstimates, updatedEstimate);
@@ -218,7 +217,7 @@ const App = () => {
         }
         const newInvoice: Partial<T.Invoice> = {
             entityId: job.entityId, customerId: job.customerId, vehicleId: job.vehicleId, jobId: job.id,
-            issueDate: formatDate(new Date()), dueDate: formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), status: 'Draft', lineItems: lineItems, createdByUserId: currentUser.id
+            issueDate: formatDate(new Date()), dueDate: formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), status: 'Draft', lineItems: lineItems, createdByUserId: currentUser!.id
         };
         setInvoiceFormModal({ isOpen: true, invoice: newInvoice as T.Invoice });
     };
@@ -243,17 +242,17 @@ const App = () => {
         switch (currentView) {
             case 'dashboard': return <DashboardView {...commonProps} onCheckIn={(id) => { const job = jobs.find(j => j.id === id); if(job) setCheckInJob(job); }} onOpenInquiry={(inq) => setInquiryModal({isOpen: true, inquiry: inq})} />;
             case 'dispatch': return <DispatchView setDefaultDateForModal={setSmartCreateDefaultDate} setIsSmartCreateOpen={setIsSmartCreateOpen} setSmartCreateMode={setSmartCreateMode} setSelectedJobId={setSelectedJobId} setIsEditModalOpen={setIsEditJobModalOpen} onOpenPurchaseOrder={(po) => setViewPoModal({isOpen: true, po})} onReassignEngineer={workshopActions.handleReassignEngineer} onCheckIn={(id) => { const job = jobs.find(j => j.id === id); if(job) setCheckInJob(job); }} onUnscheduleSegment={workshopActions.handleUnscheduleSegment} {...commonProps} />;
-            case 'workflow': return <WorkflowView jobs={jobs} vehicles={vehicles} customers={customers} engineers={engineers} currentUser={currentUser} onGenerateInvoice={handleGenerateInvoice} {...commonProps} />;
+            case 'workflow': return <WorkflowView jobs={jobs} vehicles={vehicles} customers={customers} engineers={engineers} currentUser={currentUser!} onGenerateInvoice={handleGenerateInvoice} onOpenPurchaseOrder={(po) => setViewPoModal({isOpen: true, po})} {...commonProps} />;
             case 'jobs': return <JobsView onEditJob={(id) => { setSelectedJobId(id); setIsEditJobModalOpen(true); }} onSmartCreateClick={() => { setSmartCreateMode('job'); setIsSmartCreateOpen(true); }} />;
             case 'estimates': return <EstimatesView onOpenEstimateModal={(est) => setEstimateFormModal({isOpen: true, estimate: est})} onViewEstimate={(est) => setEstimateViewModal({isOpen: true, estimate: est})} onSmartCreateClick={() => { setSmartCreateMode('estimate'); setIsSmartCreateOpen(true); }} />;
-            case 'invoices': return <InvoicesView onViewInvoice={(inv) => setViewInvoiceModal({isOpen: true, invoice: inv})} onEditInvoice={(inv) => setInvoiceFormModal({isOpen: true, invoice: inv})} onOpenExportModal={(type, items) => setExportModal({isOpen: true, type, items})} onCreateAdhocInvoice={() => setInvoiceFormModal({isOpen: true, invoice: { createdByUserId: currentUser.id } as any})} />;
+            case 'invoices': return <InvoicesView onViewInvoice={(inv) => setViewInvoiceModal({isOpen: true, invoice: inv})} onEditInvoice={(inv) => setInvoiceFormModal({isOpen: true, invoice: inv})} onOpenExportModal={(type, items) => setExportModal({isOpen: true, type, items})} onCreateAdhocInvoice={() => setInvoiceFormModal({isOpen: true, invoice: { createdByUserId: currentUser!.id } as any})} />;
             case 'purchaseOrders': return <PurchaseOrdersView onOpenPurchaseOrderModal={(po) => setPoModal({isOpen: true, po})} onViewPurchaseOrder={(po) => setViewPoModal({isOpen: true, po})} onDeletePurchaseOrder={(id) => handleDeleteItem(setPurchaseOrders, id)} onExport={() => {}} onOpenBatchAddModal={() => setBatchPoModalOpen(true)} />;
-            case 'sales': return <SalesView entity={businessEntities.find(e => e.id === selectedEntityId)!} onManageSaleVehicle={(sv) => setSorContractModal({isOpen: false, saleVehicle: null}) /* Placeholder for future better manage modal */ } onAddSaleVehicle={() => {}} onGenerateReport={() => setSalesReportModal(true)} onAddProspect={() => setProspectModal({isOpen: true, prospect: null})} onEditProspect={(p) => setProspectModal({isOpen: true, prospect: p})} onViewCustomer={() => {}} />;
+            case 'sales': return <SalesView entity={businessEntities.find(e => e.id === selectedEntityId)!} onManageSaleVehicle={(sv) => setSorContractModal({isOpen: false, saleVehicle: null}) } onAddSaleVehicle={() => {}} onGenerateReport={() => setSalesReportModal(true)} onAddProspect={() => setProspectModal({isOpen: true, prospect: null})} onEditProspect={(p) => setProspectModal({isOpen: true, prospect: p})} onViewCustomer={() => {}} />;
             case 'storage': return <StorageView entity={businessEntities.find(e => e.id === selectedEntityId)!} onSaveBooking={(b) => handleSaveItem(setStorageBookings, b)} onBookOutVehicle={() => {}} onViewInvoice={(id) => { const inv = invoices.find(i => i.id === id); if(inv) setViewInvoiceModal({isOpen: true, invoice: inv}); }} onAddCustomerAndVehicle={(c, v) => { handleSaveItem(data.setCustomers, c); handleSaveItem(data.setVehicles, v); }} onSaveInvoice={(inv) => handleSaveItem(setInvoices, inv)} setConfirmation={setConfirmation} setViewedInvoice={(inv) => setViewInvoiceModal({isOpen: true, invoice: inv})} />;
             case 'rentals': return <RentalsView entity={businessEntities.find(e => e.id === selectedEntityId)!} onOpenRentalBooking={(b) => setRentalBookingModal({isOpen: true, booking: b})} />;
             case 'concierge': return <ConciergeView onCheckIn={(id) => { const job = jobs.find(j => j.id === id); if(job) setCheckInJob(job); }} onOpenPurchaseOrder={(po) => setViewPoModal({isOpen: true, po})} onGenerateInvoice={handleGenerateInvoice} onCollect={(id) => { const job = jobs.find(j => j.id === id); if(job) setCheckOutJob(job); }} {...commonProps} />;
             case 'communications': return <CommunicationsView />;
-            case 'absence': return <AbsenceView currentUser={currentUser} users={users} absenceRequests={absenceRequests} setAbsenceRequests={setAbsenceRequests} />;
+            case 'absence': return <AbsenceView currentUser={currentUser!} users={users} absenceRequests={absenceRequests} setAbsenceRequests={setAbsenceRequests} />;
             case 'inquiries': return <InquiriesView onOpenInquiryModal={(inq) => setInquiryModal({isOpen: true, inquiry: inq})} onConvert={() => {}} onViewEstimate={(est) => setEstimateViewModal({isOpen: true, estimate: est})} onScheduleEstimate={(est, inquiryId) => setScheduleJobFromEstimateModal({isOpen: true, estimate: est, inquiryId})} onOpenPurchaseOrder={(po) => setViewPoModal({isOpen: true, po})} onEditEstimate={(est) => setEstimateFormModal({isOpen: true, estimate: est})} />;
             default: return <DashboardView {...commonProps} onCheckIn={() => {}} onOpenInquiry={() => {}} />;
         }

@@ -1,51 +1,24 @@
-{pkgs}: {
-  channel = "stable-24.05";
+{ pkgs, ... }: {
+  channel = "stable-23.11"; 
 
   packages = [
     pkgs.nodejs_20
-    pkgs.jdk20
     pkgs.firebase-tools
+    pkgs.jdk17
+    pkgs.psmisc 
   ];
 
-  idx.extensions = [
-    "svelte.svelte-vscode"
-    "vue.volar"
-  ];
+  idx = {
+    extensions = [ "mtxr.sqltools" ];
 
-  # This section ensures the IDE unlocks the ports for your App and Emulators
-  idx.previews = {
-    enable = true;
     previews = {
-      web = {
-        command = [
-          "npm"
-          "run"
-          "dev"
-          "--"
-          "--port"
-          "9001"
-          "--host"
-          "0.0.0.0"
-        ];
-        manager = "web";
-      };
-      emulators = {
-        command = [
-          "firebase",
-          "emulators:start"
-        ];
-        manager = "web";
+      enable = false; # Turn this off to stop the automatic manager loop
+    };
+
+    workspace = {
+      onStart = {
+        cleanup = "fuser -k 9001/tcp 8080/tcp 9099/tcp 9199/tcp || true";
       };
     };
-  };
-
-  # This forces the Cloud Workstation to open the Emulator doors
-  idx.workspace.onCreate = {
-    # Optional: You can add setup commands here if needed
-  };
-  
-  # Ensure the environment knows about the Firebase ports
-  idx.workspace.onStart = {
-    # This helps the IDE "detect" the background emulator processes
   };
 }

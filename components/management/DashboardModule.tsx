@@ -40,7 +40,7 @@ export const DashboardModule = ({ data, onNavigate }: any) => {
                 {/* System Integrity - Removed Blur for Crispness */}
                 <div className="col-span-2 bg-slate-900 rounded-[3.5rem] p-10 text-white relative overflow-hidden shadow-2xl">
                     {/* Background Pattern - Crisp SVG style instead of scaled icon */}
-                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `radial-gradient(#fff 1px, transparent 1px)`, size: '20px 20px' }} />
+                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `radial-gradient(#fff 1px, transparent 1px)`}} />
                     
                     <div className="relative z-10">
                         <h3 className="text-2xl font-black mb-6 flex items-center gap-3">Workshop Intelligence</h3>

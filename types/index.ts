@@ -21,6 +21,9 @@ export interface Customer {
     title: string;
     forename: string;
     surname: string;
+    // Added aliases to resolve Property 'firstName/lastName' does not exist on type 'Customer'
+    firstName?: string; 
+    lastName?: string;
     phone: string;
     mobile: string;
     email: string;

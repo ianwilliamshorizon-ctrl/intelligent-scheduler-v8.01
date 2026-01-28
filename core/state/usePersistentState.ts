@@ -1,46 +1,57 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { subscribeToCollection, getItem } from '../db';
+import { subscribeToCollection, getItem, setItem } from '../db';
 
 export const usePersistentState = <T,>(storageKey: string, getInitialValue: () => T): [T, React.Dispatch<React.SetStateAction<T>>] => {
-  const [state, setState] = useState<T>(getInitialValue());
-  const [isHydrated, setIsHydrated] = useState(false);
+    const [state, setState] = useState<T>(getInitialValue());
+    const [isHydrated, setIsHydrated] = useState(false);
+    
+    // Ref to prevent infinite loops (setting state from DB triggers a save to DB)
+    const isIncomingUpdate = useRef(false);
 
-  useEffect(() => {
-    let unsubscribe = () => {};
+    // 1. Listen for changes from the Database (Incoming)
+    useEffect(() => {
+        let unsubscribe = () => {};
+        const initialVal = getInitialValue();
+        const isCollection = Array.isArray(initialVal);
 
-    // Determine if this is a Collection (Array) or a Setting (Object/Primitive)
-    // By convention in this app, keys starting with 'brooks_' that hold arrays are collections.
-    const initialVal = getInitialValue();
-    const isCollection = Array.isArray(initialVal);
+        if (isCollection) {
+            unsubscribe = subscribeToCollection(storageKey, (data) => {
+                isIncomingUpdate.current = true;
+                setState(data as unknown as T);
+                setIsHydrated(true);
+                // Reset flag after render cycle
+                setTimeout(() => { isIncomingUpdate.current = false; }, 50);
+            });
+        } else {
+            getItem<T>(storageKey).then((data) => {
+                if (data !== null && data !== undefined) {
+                    isIncomingUpdate.current = true;
+                    setState(data);
+                }
+                setIsHydrated(true);
+                setTimeout(() => { isIncomingUpdate.current = false; }, 50);
+            });
+        }
 
-    if (isCollection) {
-        // Real-time Sync for Collections (Jobs, Customers, etc.)
-        unsubscribe = subscribeToCollection(storageKey, (data) => {
-            // Firestore returns the data. We update local state.
-            // This handles the "User B sees User A's changes" requirement.
-            setState(data as unknown as T);
-            setIsHydrated(true);
-        });
-    } else {
-        // One-time fetch for Settings/Config (legacy behavior for non-collection items)
-        getItem<T>(storageKey).then((data) => {
-            if (data) setState(data);
-            setIsHydrated(true);
-        });
-    }
+        return () => unsubscribe();
+    }, [storageKey]);
 
-    return () => {
-        unsubscribe();
-    };
-  }, [storageKey]);
+    // 2. Save changes to the Database (Outgoing)
+    useEffect(() => {
+        // Don't save if we haven't loaded the data yet, 
+        // or if the change was just sent to us by the database.
+        if (!isHydrated || isIncomingUpdate.current) return;
 
-  // We wrap setState to ensure we aren't just updating local state for Collections.
-  // NOTE: In a pure Firestore architecture, you typically don't set state directly for collections,
-  // you call db.saveDocument(). However, to keep compatibility with the huge existing codebase
-  // that passes `setJobs` around, we keep this. 
-  // IMPORTANT: The actual *writes* to DB must happen in the Action Hooks (useWorkshopActions), 
-  // not here in the setter, otherwise we get infinite loops or massive writes.
-  
-  return [state, setState];
+        const persist = async () => {
+            try {
+                await setItem(storageKey, state);
+            } catch (error) {
+                console.error(`Failed to persist ${storageKey}:`, error);
+            }
+        };
+
+        persist();
+    }, [state, storageKey, isHydrated]);
+
+    return [state, setState];
 };

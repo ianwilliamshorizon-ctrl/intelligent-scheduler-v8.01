@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../core/state/AppContext';
-import { Menu, LogOut, Settings, Building2, UserCheck, LayoutDashboard, Calendar, Wrench, Briefcase, FileText, ShoppingCart, Car, Archive, Truck, MessageSquare, Phone, CalendarDays } from 'lucide-react';
+import { useData } from '../core/state/DataContext';
+import { Menu, LogOut, Settings, Building2, UserCheck, LayoutDashboard, Calendar, Wrench, Briefcase, FileText, ShoppingCart, Car, Archive, Truck, MessageSquare, Phone, CalendarDays, GitPullRequest } from 'lucide-react';
 import * as T from '../types';
 
 const MainLayout: React.FC<{ children: React.ReactNode, onOpenManagement: () => void }> = ({ children, onOpenManagement }) => {
@@ -10,12 +11,14 @@ const MainLayout: React.FC<{ children: React.ReactNode, onOpenManagement: () => 
         currentUser, selectedEntityId, setSelectedEntityId, 
         filteredBusinessEntities, logout
     } = useApp();
+    const { roles } = useData();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     const navItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'dispatch', label: 'Dispatch', icon: Calendar },
+        { id: 'workflow', label: 'Workflow', icon: GitPullRequest },
         { id: 'concierge', label: 'Service Stream', icon: Wrench },
         { id: 'jobs', label: 'Jobs', icon: Briefcase },
         { id: 'estimates', label: 'Estimates', icon: FileText },
@@ -29,7 +32,15 @@ const MainLayout: React.FC<{ children: React.ReactNode, onOpenManagement: () => 
         { id: 'absence', label: 'Absence', icon: CalendarDays },
     ];
 
-    const allowedViews = currentUser.allowedViews || [];
+    const userRoleDef = roles.find(r => r.name === currentUser.role);
+    // Prefer user-specific overrides, then role defaults, then empty.
+    const allowedViews = currentUser.allowedViews || userRoleDef?.defaultAllowedViews || [];
+
+    // Filter nav items based strictly on allowedViews. 
+    // We do NOT automatically allow everything for 'Admin' role string here; 
+    // the Admin role definition in the database should contain all views by default.
+    // This allows custom 'Admin' roles to be restricted if needed.
+    const visibleNavItems = navItems.filter(item => allowedViews.includes(item.id as T.ViewType));
 
     return (
         <div className="flex h-screen bg-gray-100 font-sans text-gray-900">
@@ -44,11 +55,12 @@ const MainLayout: React.FC<{ children: React.ReactNode, onOpenManagement: () => 
                 
                 <nav className="flex-grow overflow-y-auto py-4">
                     <div className="px-2 space-y-1">
-                        {navItems.filter(item => allowedViews.includes(item.id as T.ViewType) || currentUser.role === 'Admin').map(item => (
+                        {visibleNavItems.map(item => (
                             <button 
                                 key={item.id}
                                 onClick={() => setCurrentView(item.id as T.ViewType)} 
                                 className={`w-full flex items-center p-2 rounded-lg transition-colors ${currentView === item.id ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                                title={!isSidebarOpen ? item.label : undefined}
                             >
                                 <item.icon size={20} className="min-w-[20px]" />
                                 {isSidebarOpen && <span className="ml-3">{item.label}</span>}
